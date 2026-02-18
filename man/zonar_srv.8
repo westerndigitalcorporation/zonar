@@ -1,0 +1,51 @@
+.\"  SPDX-License-Identifier: GPL-2.0-or-later
+.\"  SPDX-FileCopyrightText: 2026, Western Digital Corporation or its affiliates.
+.\"  Written by Damien Le Moal <damien.lemoal@wdc.com>
+.\"
+.TH ZONAR 8
+.SH NAME
+zonar_srv \- zonar server to inspect a file system use of zoned devices
+
+.SH SYNOPSIS
+.B zonar_srv
+[\fI\,OPTION\/\fR...] \fIpath\fP
+
+.SH DESCRIPTION
+.B zonar_srv
+provides a server to allow \fBzonar\fP to remotely inspect and display the use
+of the blockgroups of a zoned filesystem. \fIpath\fP must specify
+the mount directory of the file system to inspect.
+
+.SH OPTIONS
+\fBzonar_srv\fP options are as follows.
+.TP
+.BR \-\-help,\ \-h
+Display a command line help message and exit.
+.TP
+.BR \-\-verbose,\ \-v
+Enable verbose mode (for debugging).
+.TP
+.BR \-\-version,\ \-V
+Display \fBzonar\fP version and exit.
+.TP
+.BR \-\-connect,\ \-c\ \fIipaddr\fP
+Reverse connection mode: instead of waiting for a client connection, connect to
+the specified IP address.
+.TP
+.BR \-\-port,\ \-p\ \fIport\fP
+Specify the port number to connect to the server.
+
+.SH AUTHORS
+.nf
+Wilfred Mallawa <wilfred.mallawa@wdc.com>
+Alistair Francis <alistair.francis@wdc.com>
+Damien Le Moal <damien.lemoal@wdc.com>
+.fi
+
+.SH SEE ALSO
+.BR zonar (8)
+
+.SH AVAILABILITY
+The zonar application is available on GitHub
+.UR https://github.com/westerndigitalcorporation/zonar
+.UE .

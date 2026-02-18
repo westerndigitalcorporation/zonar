@@ -1,0 +1,63 @@
+.\"  SPDX-License-Identifier: GPL-2.0-or-later
+.\"  SPDX-FileCopyrightText: 2026, Western Digital Corporation or its affiliates.
+.\"  Written by Damien Le Moal <damien.lemoal@wdc.com>
+.\"
+.TH ZONAR 8
+.SH NAME
+zonar \- Show file system use of zoned devices
+
+.SH SYNOPSIS
+.B zonar
+[\fI\,OPTION\/\fR...] \fIpath\fP
+
+.SH DESCRIPTION
+.B zonar
+provides a graphical interface to visualize blockgroups of a zoned
+filesystem. \fBzonar\fP also allows inspecting the file extents
+stored in blockgroups as well as the location on the device of file extents.
+When not using the \fR\-\-connect\fP or \fR\-\-listen\fP options, \fIpath\fP
+must specify the mount directory of the file system to inspect.
+
+Currently \fBzonar\fP only supports XFS.
+
+.SH OPTIONS
+\fBzonar\fP options are as follows.
+.TP
+.BR \-\-help,\ \-h
+Display a command line help message and exit.
+.TP
+.BR \-\-verbose,\ \-v
+Enable verbose mode (for debugging).
+.TP
+.BR \-\-version,\ \-V
+Display \fBzonar\fP version and exit.
+.TP
+.BR \-\-connect,\ \-c\ \fIipaddr\fP
+Specify the IP address of the server to connect to. This option cannot be used
+together with the option \fR\-\-listen\fP. If used, a mount directory
+\fIpath\fP must not be specified.
+.TP
+.BR \-\-listen,\ \-l
+Reverse connection mode: instead of connecting to the server, listen for
+connections from the server.  This option cannot be used together with the
+option \fR\-\-connect\fP. If used, a mount directory \fIpath\fP must not be
+specified.
+.TP
+.BR \-\-port,\ \-p\ \fIport\fP
+Specify the port number to connect to the server or to listen for connection
+on.
+
+.SH AUTHORS
+.nf
+Wilfred Mallawa <wilfred.mallawa@wdc.com>
+Alistair Francis <alistair.francis@wdc.com>
+Damien Le Moal <damien.lemoal@wdc.com>
+.fi
+
+.SH SEE ALSO
+.BR zonar_srv (8)
+
+.SH AVAILABILITY
+The zonar application is available on GitHub
+.UR https://github.com/westerndigitalcorporation/zonar
+.UE .
