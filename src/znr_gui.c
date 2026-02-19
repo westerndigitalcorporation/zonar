@@ -1474,7 +1474,7 @@ static void window_size_changed_cb(GtkWidget *widget)
 static void znr_gui_create_app(GtkApplication *app, gpointer user_data)
 {
 	GtkWidget *top_vbox, *vbox, *frame, *hbox, *scroll_window, *bottom_row;
-	GtkWidget *label, *spacer, *da, *entry, *search_button;
+	GtkWidget *label, *da, *entry, *search_button;
 	GtkWidget *zoom_label, *zoom_out_button, *zoom_in_button;
 	GtkWidget *refresh_button, *refresh_toggle;
 	GtkCssProvider *css_provider;
@@ -1582,16 +1582,12 @@ static void znr_gui_create_app(GtkApplication *app, gpointer user_data)
 
 	/* Legend drawing area */
 	da = gtk_drawing_area_new();
-	gtk_widget_set_size_request(da, 300, 40);
+	gtk_widget_set_hexpand(da, TRUE);
+	gtk_widget_set_vexpand(da, TRUE);
 	gtk_box_append(GTK_BOX(hbox), da);
 
 	gtk_drawing_area_set_draw_func(GTK_DRAWING_AREA(da),
 				       znr_gui_draw_legend_cb, NULL, NULL);
-
-	/* Add expanding spacer to push zoom/refresh buttons to the right */
-	spacer = gtk_label_new("");
-	gtk_widget_set_hexpand(spacer, TRUE);
-	gtk_box_append(GTK_BOX(hbox), spacer);
 
 	/* Zoom controls label */
 	zoom_label = gtk_label_new("Zoom:");
