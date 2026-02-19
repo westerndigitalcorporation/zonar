@@ -1577,6 +1577,7 @@ static void znr_gui_create_app(GtkApplication *app, gpointer user_data)
 	gtk_widget_set_margin_start(hbox, 10);
 	gtk_widget_set_margin_end(hbox, 10);
 	gtk_widget_set_margin_bottom(hbox, 20);
+	gtk_widget_set_vexpand(hbox, FALSE);
 	gtk_box_append(GTK_BOX(vbox), hbox);
 
 	/* Legend drawing area */
@@ -1633,7 +1634,6 @@ static void znr_gui_create_app(GtkApplication *app, gpointer user_data)
 	gtk_entry_set_placeholder_text(GTK_ENTRY(entry),
 			"Enter blockgroup number...");
 	gtk_widget_set_hexpand(entry, FALSE);
-	gtk_widget_set_size_request(entry, 200, -1);
 	gtk_widget_set_margin_end(entry, 10);
 	gtk_box_append(GTK_BOX(hbox), entry);
 	g_signal_connect(entry, "activate",
@@ -1642,7 +1642,6 @@ static void znr_gui_create_app(GtkApplication *app, gpointer user_data)
 
 	/* Go to blockgroup button */
 	search_button = gtk_button_new_with_label("Show");
-	gtk_widget_set_size_request(search_button, 100, -1);
 	gtk_box_append(GTK_BOX(hbox), search_button);
 	g_signal_connect(search_button, "clicked",
 			 G_CALLBACK(znr_gui_show_blockgroup_cb), NULL);
@@ -1652,7 +1651,6 @@ static void znr_gui_create_app(GtkApplication *app, gpointer user_data)
 	gtk_entry_set_placeholder_text(GTK_ENTRY(entry), "Period (ms)");
 	gtk_widget_set_tooltip_text(entry, "Auto refresh period (ms)");
 	gtk_widget_set_hexpand(entry, FALSE);
-	gtk_widget_set_size_request(entry, 180, -1);
 	gtk_widget_set_margin_start(entry, 10);
 	gtk_box_append(GTK_BOX(hbox), entry);
 	znrg.refresh_ms_entry = entry;
@@ -1723,7 +1721,6 @@ static void znr_gui_create_app(GtkApplication *app, gpointer user_data)
 	gtk_entry_set_placeholder_text(GTK_ENTRY(entry),
 			"Enter file path (relative to mount point)...");
 	gtk_widget_set_hexpand(entry, TRUE);
-	gtk_widget_set_size_request(entry, 400, -1);
 	gtk_widget_set_margin_end(entry, 10);
 	gtk_box_append(GTK_BOX(hbox), entry);
 	g_signal_connect(entry, "activate",
@@ -1732,7 +1729,6 @@ static void znr_gui_create_app(GtkApplication *app, gpointer user_data)
 
 	/* Search button */
 	search_button = gtk_button_new_with_label("Search");
-	gtk_widget_set_size_request(search_button, 100, -1);
 	gtk_box_append(GTK_BOX(hbox), search_button);
 	g_signal_connect(search_button, "clicked",
 			 G_CALLBACK(znr_gui_search_file_cb), NULL);
