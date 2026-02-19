@@ -1012,6 +1012,9 @@ static void znr_gui_draw_legend_cb(GtkDrawingArea *drawing_area,
                 znr_gui_draw_legend("Sequential (Unwritten)",
                                     &znrg.color_seq, cr, &x, y, widget);
 
+                x = 10;
+                y *= 3;
+
                 /* Sequential written zones legend */
                 znr_gui_draw_legend("Sequential (Written)",
                                     &znrg.color_seqw, cr, &x, y, widget);
@@ -1578,7 +1581,7 @@ static void znr_gui_create_app(GtkApplication *app, gpointer user_data)
 
 	/* Legend drawing area */
 	da = gtk_drawing_area_new();
-	gtk_widget_set_size_request(da, 750, 40);
+	gtk_widget_set_size_request(da, 300, 40);
 	gtk_box_append(GTK_BOX(hbox), da);
 
 	gtk_drawing_area_set_draw_func(GTK_DRAWING_AREA(da),
