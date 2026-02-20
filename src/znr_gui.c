@@ -1314,8 +1314,12 @@ static void znr_gui_grid_setup_cb(GtkListItemFactory *factory,
 
 	znr_gui_blockgroup_da_size(&zw, &zh);
 	gtk_widget_set_size_request(da, zw, zh);
-	gtk_widget_set_hexpand(da, TRUE);
+
+	gtk_widget_set_halign(da, GTK_ALIGN_FILL);
+	gtk_widget_set_valign(da, GTK_ALIGN_FILL);
 	gtk_widget_set_vexpand(da, TRUE);
+	gtk_widget_set_hexpand(da, TRUE);
+
 	gtk_list_item_set_child(list_item, da);
 }
 
@@ -1436,6 +1440,8 @@ static GtkWidget *znr_gui_create_grid(void)
 	gtk_grid_view_set_min_columns(GTK_GRID_VIEW(grid_view), znrg.nr_col);
 
 	/* Make grid fit window */
+	gtk_widget_set_halign(grid_view, GTK_ALIGN_FILL);
+	gtk_widget_set_valign(grid_view, GTK_ALIGN_FILL);
 	gtk_widget_set_hexpand(grid_view, TRUE);
 	gtk_widget_set_vexpand(grid_view, TRUE);
 
