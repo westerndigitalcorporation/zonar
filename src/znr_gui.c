@@ -1555,9 +1555,20 @@ static void znr_gui_create_app(GtkApplication *app, gpointer user_data)
 	gtk_widget_set_margin_top(scroll_window, 10);
 	gtk_widget_set_margin_bottom(scroll_window, 10);
 	gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scroll_window),
-						   500);
+						   400);
+
+	/*
+	 * Use the natural size of the child (grid), and allow the scroll
+	 * window to fill and expand relative to it's parent
+	 */
 	gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll_window),
-						  800);
+						  -1);
+	gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(scroll_window),
+							TRUE);
+        gtk_widget_set_halign(scroll_window, GTK_ALIGN_FILL);
+        gtk_widget_set_vexpand(scroll_window, TRUE);
+        gtk_widget_set_hexpand(scroll_window, TRUE);
+
 	gtk_scrolled_window_set_has_frame(GTK_SCROLLED_WINDOW(scroll_window),
 					  true);
 	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll_window),
