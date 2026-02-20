@@ -1501,8 +1501,7 @@ static void znr_gui_create_app(GtkApplication *app, gpointer user_data)
 	gdk_rgba_parse(&znrg.color_extent, "Gold");
 
 	znrg.window = gtk_application_window_new(app);
-	gtk_window_set_title(GTK_WINDOW(znrg.window), "Blockgroup State");
-	gtk_window_set_default_size(GTK_WINDOW(znrg.window), 1280, 720);
+	gtk_window_set_title(GTK_WINDOW(znrg.window), "Zonar");
 
 	g_signal_connect(znrg.window, "notify::default-width",
 			 G_CALLBACK(window_size_changed_cb), NULL);
