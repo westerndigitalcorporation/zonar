@@ -10,17 +10,24 @@ architecture, allowing inspecting file systems on remote systems.
 
 Currently, Zonar supports only the XFS file system.
 
-## Zonar in action (SMR drive on Zoned XFS)
+## Zonar in action (XFS on a zloop device)
 
 Below is a demonstration of using Zonar in auto-refresh mode to inspect file
-writes to an XFS file system on an SMR disk.
+writes to an XFS file system on a zloop device. It also demonstrates the
+file search feature which shows the files extents on the respective blockgroups.
 
 The XFS allocation groups (AGs) which use conventional zones on the disk are
 shown in pink, and XFS real-time groups (RGs) which use sequential write
 required zones on the disk are shown in green. The evolving red shading shows
 file data being written into XFS RGs blockgroups in real time.
 
-![Zonar Preview](Docs/preview/smr_preview.gif)
+![Zonar Preview](Docs/preview/znr_preview.gif)
+
+The demonstration below visualises garbage collection in action on XFS. Note
+that this demonstration is sped up for most of the write sequence up until
+garbage collection occurs towards the end.
+
+![Zonar GC Preview](Docs/preview/znr_gc.gif)
 
 ## Requirements
 
