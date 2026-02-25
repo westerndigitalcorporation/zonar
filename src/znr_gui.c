@@ -396,15 +396,34 @@ static inline long long znr_gui_draw_wp_rect(cairo_t *cr, GdkRGBA *color,
 static void znr_gui_draw_bg_written(struct znr_blockgroup *bg,
 				    cairo_t *cr, int width, int height)
 {
-	if (!bg->nr_zones)
+	bool bg_full;
+	unsigned long wp;
+
+	if (!znr_bg_has_wp(bg))
 		return;
 
-	if (bg->wp_sector == 0)
+	if (bg->flags & ZNR_BG_HAS_DEV_ZONE_WP) {
+		wp = bg->dev_zone_wp;
+		bg_full = znr_bg_dev_zone_full(bg);
+	} else {
+		wp = bg->fs_wp;
+		bg_full = znr_bg_full(bg);
+	}
+
+	if (!wp)
 		return;
+
+	/* if the blockgroup is full, draw across the full width. */
+	if (bg_full) {
+		gdk_cairo_set_source_rgba(cr, &znrg.color_seqw);
+		cairo_rectangle(cr, 0, 0, width, height);
+		cairo_fill(cr);
+		return;
+	}
 
 	/* Written space in blockgroup */
-	znr_gui_draw_wp_rect(cr, &znrg.color_seqw, 0, 0, width, height,
-			     bg->wp_sector, bg->nr_sectors);
+	znr_gui_draw_wp_rect(cr, &znrg.color_seqw, 0, 0, width, height, wp,
+			     bg->nr_sectors);
 }
 
 static void znr_gui_draw_bg_num(struct znr_gui_blockgroup *bg,
@@ -569,6 +588,9 @@ static void znr_gui_bg_draw_cb(GtkDrawingArea *drawing_area,
 {
 	struct znr_gui_blockgroup *gui_bg = user_data;
 	struct znr_blockgroup *bg = gui_bg->bg;
+	unsigned long wp_sector;
+	unsigned int percent = 100;
+	bool bg_full;
 	char info[256];
 	char wp[32];
 	char type[32];
@@ -579,14 +601,11 @@ static void znr_gui_bg_draw_cb(GtkDrawingArea *drawing_area,
 		return;
 
 	/* Draw blockgroup background based on type in flags field */
-	if (bg->flags == BLK_ZONE_TYPE_CONVENTIONAL) {
+	if (znr_bg_has_wp(bg))
+		gdk_cairo_set_source_rgba(cr, &znrg.color_seq);
+	else
 		gdk_cairo_set_source_rgba(cr, &znrg.color_conv);
-	} else if (bg->flags == BLK_ZONE_TYPE_SEQWRITE_REQ) {
-		gdk_cairo_set_source_rgba(cr, &znrg.color_seq);
-	} else {
-		fprintf(stderr, "Unknown blockgroup type: %u\n", bg->flags);
-		gdk_cairo_set_source_rgba(cr, &znrg.color_seq);
-	}
+
 	cairo_rectangle(cr, 0, 0, width, height);
 	cairo_fill(cr);
 
@@ -617,32 +636,26 @@ static void znr_gui_bg_draw_cb(GtkDrawingArea *drawing_area,
 		cairo_stroke(cr);
 
 		/* Render Blockgroup info in hover overview */
-		if (bg->flags == BLK_ZONE_TYPE_SEQWRITE_REQ) {
-			if (bg->nr_zones == 1 &&
-			    bg->zones[0]->cond == BLK_ZONE_COND_FULL) {
-				snprintf(wp, sizeof(wp), "N/A");
-				snprintf(usage, sizeof(usage), "100%%");
-			} else if (bg->nr_zones == 1) {
-				snprintf(wp, sizeof(wp), "0x%lx", bg->wp_sector);
-				snprintf(usage, sizeof(usage), "%lu%%",
-					 bg->wp_sector * 100 / bg->nr_sectors);
+		snprintf(wp, sizeof(wp), "N/A");
+		snprintf(type, sizeof(type), "Conventional");
+		snprintf(usage, sizeof(usage), "N/A");
+
+		if (znr_bg_has_wp(bg)) {
+			snprintf(type, sizeof(type), "Sequential Write Required");
+
+			if (bg->flags & ZNR_BG_HAS_DEV_ZONE_WP) {
+				wp_sector = bg->dev_zone_wp;
+				bg_full = znr_bg_dev_zone_full(bg);
 			} else {
-				/* todo: Likely RAID, we need to revise */
-				snprintf(wp, sizeof(wp), "Unknown");
-				snprintf(usage, sizeof(usage), "N/A");
-				fprintf(stderr,
-					"Unsupported number of zones in blockgroups");
+				wp_sector = bg->fs_wp;
+				bg_full = znr_bg_full(bg);
 			}
 
-			snprintf(type, sizeof(type), "Sequential Write Required");
-		} else if (bg->flags == BLK_ZONE_TYPE_CONVENTIONAL) {
-			snprintf(wp, sizeof(wp), "N/A");
-			snprintf(type, sizeof(type), "Conventional");
-			snprintf(usage, sizeof(usage), "N/A");
-		} else {
-			snprintf(wp, sizeof(wp), "Unknown");
-			snprintf(type, sizeof(type), "Unknown");
-			snprintf(usage, sizeof(usage), "Unknown");
+			if (!bg_full) {
+				snprintf(wp, sizeof(wp), "0x%lx", wp_sector);
+				percent = wp_sector * 100 / bg->nr_sectors;
+			}
+			snprintf(usage, sizeof(usage), "%u%%", percent);
 		}
 
 		snprintf(info, sizeof(info),
@@ -886,11 +899,15 @@ static void znr_gui_click_bg_cb(GtkGestureClick *self, gint n_press,
 	struct znr_gui_extents_tab *tab;
 	GtkTextBuffer *text_buffer;
 	struct znr_extent *extents;
+	struct znr_blockgroup *bg;
 	unsigned int nr_extents;
 	GtkTextIter iter;
+	char wp_str[32] = "N/A";
 	char *extents_info = NULL;
 	char info[256];
 	char tab_label[32], *bg_info;
+	unsigned long wp;
+	bool bg_full;
 	int ret;
 
 	if (!gui_bg || !gui_bg->bg)
@@ -913,8 +930,8 @@ static void znr_gui_click_bg_cb(GtkGestureClick *self, gint n_press,
 	}
 
 	/* Get all extents in the clicked blockgroup */
-	ret = znr_fs_get_extents_in_range(gui_bg->bg->sector,
-					  gui_bg->bg->nr_sectors,
+	bg = gui_bg->bg;
+	ret = znr_fs_get_extents_in_range(bg->sector, bg->nr_sectors,
 					  &extents, &nr_extents);
 	if (ret) {
 		znr_gui_err("Failed to get blockgroup extents\n", NULL);
@@ -933,16 +950,25 @@ static void znr_gui_click_bg_cb(GtkGestureClick *self, gint n_press,
 	text_buffer = gtk_text_buffer_new(NULL);
 	gtk_text_buffer_get_start_iter(text_buffer, &iter);
 
-	if (gui_bg->bg->wp_sector >= gui_bg->bg->nr_sectors)
-		snprintf(info, sizeof(info),
-			 "<b>Blockgroup %u</b>\nSector: %lu\nSize: %lu sectors\nWP: N/A (Blockgroup full) \n\n",
-			 gui_bg->bg_no, gui_bg->bg->sector,
-			 gui_bg->bg->nr_sectors);
-	else
-		snprintf(info, sizeof(info),
-			 "<b>Blockgroup %u</b>\nSector: %lu\nSize: %lu sectors\nWP: %lu\n\n",
-			 gui_bg->bg_no, gui_bg->bg->sector,
-			 gui_bg->bg->nr_sectors, gui_bg->bg->wp_sector);
+	if (znr_bg_has_wp(bg)) {
+		if (bg->flags & ZNR_BG_HAS_DEV_ZONE_WP) {
+			wp = bg->dev_zone_wp;
+			bg_full = znr_bg_dev_zone_full(bg);
+		} else {
+			wp = bg->fs_wp;
+			bg_full = znr_bg_full(bg);
+		}
+
+		if (bg_full)
+			snprintf(wp_str, sizeof(wp_str), "N/A (Blockgroup full)");
+		else
+			snprintf(wp_str, sizeof(wp_str), "%lu", wp);
+	}
+
+	snprintf(info, sizeof(info),
+		 "<b>Blockgroup %u</b>\nSector: %lu\nSize: %lu sectors\nWP: %s\n\n",
+		 gui_bg->bg_no, bg->sector, bg->nr_sectors, wp_str);
+
 	bg_info = info;
 	gtk_text_buffer_insert_markup(text_buffer, &iter, bg_info,
 				      strlen(bg_info));

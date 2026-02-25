@@ -387,7 +387,8 @@ static int znr_net_send_blockgroups(struct znr_net_client *ncli,
 	for (i = 0; i < nr_bgs; i++, bg++) {
 		bg->sector = htonll(bg->sector);
 		bg->nr_sectors = htonll(bg->nr_sectors);
-		bg->wp_sector = htonll(bg->wp_sector);
+		bg->dev_zone_wp = htonll(bg->dev_zone_wp);
+		bg->fs_wp = ntohll(bg->fs_wp);
 		bg->flags = htonl(bg->flags);
 	}
 
@@ -1043,7 +1044,8 @@ int znr_net_get_blockgroups(struct znr_net_client *ncli,
 	for (i = 0; i < *nr_bgs; i++, bg++) {
 		bg->sector = ntohll(bg->sector);
 		bg->nr_sectors = ntohll(bg->nr_sectors);
-		bg->wp_sector = ntohll(bg->wp_sector);
+		bg->dev_zone_wp = ntohll(bg->dev_zone_wp);
+		bg->fs_wp = ntohll(bg->fs_wp);
 		bg->flags = ntohl(bg->flags);
 	}
 
