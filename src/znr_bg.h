@@ -5,7 +5,7 @@
 #ifndef ZNR_BG_H
 #define ZNR_BG_H
 
-#define ZNR_BG_MAX_ZONES	64
+#define ZNR_BG_MAX_ZONES	512
 
 /*
  * Block group information.
