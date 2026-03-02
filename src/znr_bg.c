@@ -30,11 +30,11 @@ void znr_bgs_destroy(struct znr_bg *blockgroups, unsigned int nr_blockgroups)
 	}
 }
 
-static int znr_bg_map_zones_to_blockgroups(struct znr_bg *blockgroups,
-					   unsigned int nr_blockgroups,
-					   struct blk_zone *zones,
-					   unsigned int nr_zones,
-					   unsigned int zone_sectors)
+static int znr_get_bg_zone_mapping(struct znr_bg *blockgroups,
+				   unsigned int nr_blockgroups,
+				   struct blk_zone *zones,
+				   unsigned int nr_zones,
+				   unsigned int zone_sectors)
 {
 	unsigned long bg_sector_end, zone_sector_end;
 	unsigned int max_zones_per_bg, bg_zone_idx, j, i, zone_start_idx = 0;
@@ -218,9 +218,9 @@ static int znr_bg_report(struct znr_device *dev, struct blk_zone *zones,
 	if ((unsigned int)ret != nr_zones)
 		return -EINVAL;
 
-	ret = znr_bg_map_zones_to_blockgroups(blockgroups, nr_blockgroups,
-					      &zones[start_zone_no],
-					      nr_zones, dev->zone_sectors);
+	ret = znr_get_bg_zone_mapping(blockgroups, nr_blockgroups,
+				      &zones[start_zone_no], nr_zones,
+				      dev->zone_sectors);
 	if (ret)
 		return ret;
 
