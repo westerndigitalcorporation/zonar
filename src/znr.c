@@ -27,6 +27,7 @@ void znr_close(void)
 	znr_fs_close();
 	znr_dev_close();
 	free(znr.blk_zones);
+	znr_bgs_destroy(znr.blockgroups, znr.nr_blockgroups);
 	free(znr.blockgroups);
 }
 

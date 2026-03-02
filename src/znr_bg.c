@@ -20,13 +20,25 @@ int znr_bg_get_blockgroups(struct znr_bg **blockgroups,
 	return znr_fs_get_blockgroups(blockgroups, nr_blockgroups);
 }
 
+void znr_bgs_destroy(struct znr_bg *blockgroups, unsigned int nr_blockgroups)
+{
+	unsigned int i;
+
+	for (i = 0; i < nr_blockgroups; i++) {
+		free(blockgroups[i].zones);
+		blockgroups[i].zones = NULL;
+	}
+}
+
 static int znr_bg_map_zones_to_blockgroups(struct znr_bg *blockgroups,
 					   unsigned int nr_blockgroups,
 					   struct blk_zone *zones,
-					   unsigned int nr_zones)
+					   unsigned int nr_zones,
+					   unsigned int zone_sectors)
 {
 	unsigned long bg_sector_end, zone_sector_end;
-	unsigned int bg_zone_idx, j, i, zone_start_idx = 0;
+	unsigned int max_zones_per_bg, bg_zone_idx, j, i, zone_start_idx = 0;
+	int ret;
 
 	znr_verbose("Mapping %u zones to %u blockgroups\n", nr_zones,
 		    nr_blockgroups);
@@ -44,8 +56,21 @@ static int znr_bg_map_zones_to_blockgroups(struct znr_bg *blockgroups,
 		return -EINVAL;
 
 	for (i = 0; i < nr_blockgroups; ++i) {
-		memset(blockgroups[i].zones, 0, sizeof(blockgroups[i].zones));
-		blockgroups[i].nr_zones = 0;
+		/*
+		 * Max zones mapped to a blockgroup plus some padding for
+		 * overlap between blockgroups (e.g XFS allocation groups).
+		 */
+		max_zones_per_bg =
+			(blockgroups[i].nr_sectors / zone_sectors) + 4;
+		blockgroups[i].nr_zones = max_zones_per_bg;
+		blockgroups[i].zones =
+			calloc(max_zones_per_bg, sizeof(struct blk_zone *));
+		if (!blockgroups[i].zones) {
+			fprintf(stderr, "No memory for blockgroup zone array\n");
+			ret = -ENOMEM;
+			goto out_free;
+		}
+
 		bg_sector_end = blockgroups[i].sector +
 				blockgroups[i].nr_sectors;
 		bg_zone_idx = 0;
@@ -74,10 +99,12 @@ static int znr_bg_map_zones_to_blockgroups(struct znr_bg *blockgroups,
 			/* This zone overlaps with the i'th blockgroup */
 			blockgroups[i].zones[bg_zone_idx] = &zones[j];
 			bg_zone_idx++;
-			if (bg_zone_idx >= ZNR_BG_MAX_ZONES) {
+			if (bg_zone_idx > max_zones_per_bg) {
 				fprintf(stderr,
-					"Too many zones in blockgroup\n");
-				return -EINVAL;
+					"Too many zones in blockgroup[%u]:  [%u/%u]\n",
+					i, bg_zone_idx, max_zones_per_bg);
+				ret = -EINVAL;
+				goto out_free;
 			}
 			blockgroups[i].nr_zones = bg_zone_idx;
 		}
@@ -85,7 +112,8 @@ static int znr_bg_map_zones_to_blockgroups(struct znr_bg *blockgroups,
 		if (!blockgroups[i].nr_zones) {
 			fprintf(stderr,
 				"No zones mapped to blockgroup %u\n", i);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto out_free;
 		}
 
 		blockgroups[i].flags = blockgroups[i].zones[0]->type;
@@ -98,6 +126,10 @@ static int znr_bg_map_zones_to_blockgroups(struct znr_bg *blockgroups,
 	}
 
 	return 0;
+
+out_free:
+	znr_bgs_destroy(blockgroups, i);
+	return ret;
 }
 
 static int znr_bg_to_zno(struct znr_device *dev,
@@ -188,7 +220,7 @@ static int znr_bg_report(struct znr_device *dev, struct blk_zone *zones,
 
 	ret = znr_bg_map_zones_to_blockgroups(blockgroups, nr_blockgroups,
 					      &zones[start_zone_no],
-					      nr_zones);
+					      nr_zones, dev->zone_sectors);
 	if (ret)
 		return ret;
 

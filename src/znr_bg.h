@@ -5,8 +5,6 @@
 #ifndef ZNR_BG_H
 #define ZNR_BG_H
 
-#define ZNR_BG_MAX_ZONES	64
-
 /*
  * Block group information.
  */
@@ -23,7 +21,7 @@ struct znr_bg {
 	unsigned int flags;
 
 	/* Zones in this block group */
-	struct blk_zone *zones[ZNR_BG_MAX_ZONES];
+	struct blk_zone **zones;
 	unsigned long nr_zones;
 };
 
@@ -33,5 +31,7 @@ int znr_bg_get_blockgroups(struct znr_bg **blockgroups,
 int znr_bg_refresh(struct znr_device *dev, struct blk_zone *zones,
 		   unsigned int max_zones, struct znr_bg *blockgroups,
 		   unsigned int blockgroup_num, unsigned int nr_blockgroups);
+
+void znr_bgs_destroy(struct znr_bg *blockgroups, unsigned int nr_blockgroups);
 
 #endif /* ZNR_BG_H */
