@@ -97,7 +97,13 @@ const char *znr_dev_zone_cond_str(struct blk_zone *z, bool s);
 
 #ifndef BLKZONEREPORTV2
 #define BLKREPORTZONEV2		_IOWR(0x12, 142, struct blk_zone_report)
+#endif
+
+#ifndef BLK_ZONE_REP_CACHED
 #define BLK_ZONE_REP_CACHED	(1U << 31)
+#endif
+
+#ifndef BLK_ZONE_COND_ACTIVE
 #define BLK_ZONE_COND_ACTIVE	0xFF
 #endif
 
