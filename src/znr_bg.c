@@ -46,18 +46,67 @@ static inline void znr_bg_set_dev_zone_wp(struct znr_blockgroup *bg)
 	}
 }
 
-static int znr_get_bg_zone_mapping(struct znr_blockgroup *bgs,
-				   unsigned int nr_bgs,
+static int znr_bg_get_zone_mapping(struct znr_blockgroup *bg,
 				   struct blk_zone *zones,
 				   unsigned int nr_zones,
 				   unsigned int zone_sectors)
 {
-	unsigned long bg_sector_end, zone_sector_end;
-	unsigned int max_zones_per_bg, bg_zone_idx, j, i, zone_start_idx = 0;
-	int ret;
+	unsigned long bg_end;
+	unsigned int j, max_zones_per_bg, bg_zone_idx = 0;
+	unsigned int start_zno, end_zno;
 
-	znr_verbose("Mapping %u zones to %u blockgroups\n", nr_zones,
-		    nr_bgs);
+	if (!bg || !zones || !nr_zones)
+		return -EINVAL;
+
+	bg_end = bg->sector + bg->nr_sectors;
+	start_zno = bg->sector / zone_sectors;
+	end_zno = bg_end / zone_sectors;
+
+	if (start_zno > end_zno)
+		return -EINVAL;
+
+	/* This is inclusive of the start and the end zone, hence + 1. */
+	max_zones_per_bg = (end_zno - start_zno) + 1;
+	bg->zones =
+		calloc(max_zones_per_bg, sizeof(struct blk_zone *));
+	if (!bg->zones) {
+		fprintf(stderr, "No memory for blockgroup zone array\n");
+		return -ENOMEM;
+	}
+
+	bg_zone_idx = 0;
+	for (j = 0; j < max_zones_per_bg; j++) {
+		if (start_zno + j > nr_zones) {
+			fprintf(stderr, "Invalid zone index in blockgroup [%u/%u]\n",
+				start_zno + j, nr_zones);
+			free(bg->zones);
+			bg->zones = NULL;
+			return -EINVAL;
+		}
+		bg->nr_zones = bg_zone_idx;
+		bg->zones[bg_zone_idx++] = &zones[start_zno + j];
+	}
+
+	if (!bg_zone_idx) {
+		fprintf(stderr, "No zones in blockgroup\n");
+		free(bg->zones);
+		bg->zones = NULL;
+		return -EINVAL;
+	}
+
+	znr_bg_set_dev_zone_wp(bg);
+	bg->flags |= ZNR_BG_MAPPING_INITIALIZED;
+	return 0;
+}
+
+static int znr_bg_get_zone_info(struct znr_blockgroup *bgs,
+				unsigned int nr_bgs,
+				struct blk_zone *zones,
+				unsigned int nr_zones,
+				unsigned int zone_sectors)
+{
+	unsigned int i;
+	int ret = 0;
 
 	if (!bgs || !zones)
 		return -EINVAL;
@@ -71,71 +120,26 @@ static int znr_get_bg_zone_mapping(struct znr_blockgroup *bgs,
 	if (nr_zones > znr.nr_zones)
 		return -EINVAL;
 
-	for (i = 0; i < nr_bgs; ++i) {
-		/*
-		 * Max zones mapped to a blockgroup plus some padding for
-		 * overlap between blockgroups (e.g XFS allocation groups).
-		 */
-		max_zones_per_bg =
-			(bgs[i].nr_sectors / zone_sectors) + 4;
-		bgs[i].nr_zones = max_zones_per_bg;
-		bgs[i].zones =
-			calloc(max_zones_per_bg, sizeof(struct blk_zone *));
-		if (!bgs[i].zones) {
-			fprintf(stderr, "No memory for blockgroup zone array\n");
-			ret = -ENOMEM;
-			goto out_free;
-		}
+	znr_verbose("Getting zone info for %u blockgroup starting at sector: 0x%lx\n",
+		    nr_bgs, bgs[0].sector);
 
-		bg_sector_end = bgs[i].sector +
-				bgs[i].nr_sectors;
-		bg_zone_idx = 0;
-
-		/*
-		 * Start from where we left off, but check the last zone back.
-		 * For conventional zones, blockgroups may overlap zones.
-		 */
-		j = (zone_start_idx > 1) ? zone_start_idx - 1 : 0;
-		for (; j < nr_zones; ++j) {
-			zone_sector_end = zones[j].start + zones[j].len;
-
-			/* Skip zones that end before this blockgroup starts */
-			if (zone_sector_end <= bgs[i].sector) {
-				zone_start_idx = j + 1;
-				continue;
-			}
-
+	for (i = 0; i < nr_bgs; i++) {
+		if (bgs[i].flags & ZNR_BG_MAPPING_INITIALIZED) {
 			/*
-			 * Stop checking zones that start at or after this
-			 * blockgroup ends
+			 * Zone backing information cannot change, if zone
+			 * backing information already exists, only update the
+			 * writepointer.
 			 */
-			if (zones[j].start >= bg_sector_end)
-				break;
-
-			/* This zone overlaps with the i'th blockgroup */
-			bgs[i].zones[bg_zone_idx] = &zones[j];
-			bg_zone_idx++;
-			if (bg_zone_idx > max_zones_per_bg) {
-				fprintf(stderr,
-					"Too many zones in blockgroup[%u]:  [%u/%u]\n",
-					i, bg_zone_idx, max_zones_per_bg);
-				ret = -EINVAL;
+			znr_bg_set_dev_zone_wp(&bgs[i]);
+		} else {
+			ret = znr_bg_get_zone_mapping(&bgs[i], zones,
+						      nr_zones, zone_sectors);
+			if (ret)
 				goto out_free;
-			}
-			bgs[i].nr_zones = bg_zone_idx;
 		}
-
-		if (!bgs[i].nr_zones) {
-			fprintf(stderr,
-				"No zones mapped to blockgroup %u\n", i);
-			ret = -EINVAL;
-			goto out_free;
-		}
-		znr_bg_set_dev_zone_wp(&bgs[i]);
 	}
 
 	return 0;
-
 out_free:
 	znr_bg_destroy_blockgroups(bgs, i);
 	return ret;
@@ -182,47 +186,59 @@ static int znr_bg_report(struct znr_device *dev, struct blk_zone *zones,
 	unsigned long max_sector;
 	int ret;
 
-	if (!bgs || !nr_bgs ||
-	    bg_no + nr_bgs > znr.nr_bgs)
-		return -EINVAL;
-
-	if (!dev->is_zoned)
-		return nr_bgs;
-
-	if (!dev || !zones || !max_zones || max_zones > dev->nr_zones)
+	if (!bgs || !nr_bgs || bg_no + nr_bgs > znr.nr_bgs)
 		return -EINVAL;
 
 	znr_verbose("Do blockgroup reports from group %u, %u groups\n",
 		    bg_no, nr_bgs);
 
-	/* The last sector in this set of blockgroups */
-	max_sector = bgs[nr_bgs - 1].sector +
-		     bgs[nr_bgs - 1].nr_sectors;
-	if (max_sector > dev->nr_sectors) {
-		fprintf(stderr, "Sector out of bounds: sector: %ld | max: %lld\n",
-			max_sector, dev->nr_sectors);
-		return -EINVAL;
+	/* Do the zone report first for zoned devices. */
+	if (dev->is_zoned) {
+		if (!dev || !zones || !max_zones || max_zones > dev->nr_zones)
+			return -EINVAL;
+
+		/* The last sector in this set of blockgroups. */
+		max_sector = bgs[nr_bgs - 1].sector +
+			bgs[nr_bgs - 1].nr_sectors;
+		if (max_sector > dev->nr_sectors) {
+			fprintf(stderr, "Sector out of bounds: sector: %ld | max: %lld\n",
+				max_sector, dev->nr_sectors);
+			return -EINVAL;
+		}
+
+		ret = znr_bg_to_zno(dev, bgs, &bgs[bg_no + (nr_bgs - 1)],
+				    &start_zone_no, &last_zone_no);
+		if (ret)
+			return ret;
+
+		nr_zones = last_zone_no - start_zone_no;
+		if (!nr_zones || nr_zones > max_zones)
+			return -EINVAL;
+
+		/* Do zone report */
+		ret = znr_dev_report_zones(dev, start_zone_no,
+					   &zones[start_zone_no], nr_zones);
+		if ((unsigned int)ret != nr_zones)
+			return -EINVAL;
 	}
 
-	ret = znr_bg_to_zno(dev, bgs, &bgs[bg_no + (nr_bgs - 1)],
-			    &start_zone_no, &last_zone_no);
-	if (ret)
-		return ret;
-
-	nr_zones = last_zone_no - start_zone_no;
-	if (!nr_zones || nr_zones > max_zones)
+	/*
+	 * This needs to happen after a zone report to ensure we get the most
+	 * upto date FS writepointer.
+	 */
+	ret = znr_fs_report_blockgroups(&bgs[bg_no],
+					bg_no,
+					nr_bgs);
+	if (ret < 0 || (unsigned int)ret != nr_bgs)
 		return -EINVAL;
 
-	/* Do zone report */
-	ret = znr_dev_report_zones(dev, start_zone_no,
-				   &zones[start_zone_no], nr_zones);
-	if ((unsigned int)ret != nr_zones)
-		return -EINVAL;
+	if (!dev->is_zoned)
+		return nr_bgs;
 
-	ret = znr_get_bg_zone_mapping(&bgs[bg_no],
-				      nr_bgs,
-				      &zones[start_zone_no], nr_zones,
-				      dev->zone_sectors);
+	ret = znr_bg_get_zone_info(&bgs[bg_no],
+				   nr_bgs,
+				   &zones[start_zone_no], nr_zones,
+				   dev->zone_sectors);
 	if (ret)
 		return ret;
 
