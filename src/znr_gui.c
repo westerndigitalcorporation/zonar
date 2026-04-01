@@ -100,6 +100,7 @@ struct znr_gui {
 	GdkRGBA			color_conv;
 	GdkRGBA			color_seq;
 	GdkRGBA			color_seqw;
+	GdkRGBA			color_delta;
 	GdkRGBA			color_text;
 	GdkRGBA			color_jz;
 	GdkRGBA			color_extent;
@@ -396,8 +397,9 @@ static inline long long znr_gui_draw_wp_rect(cairo_t *cr, GdkRGBA *color,
 static void znr_gui_draw_bg_written(struct znr_blockgroup *bg,
 				    cairo_t *cr, int width, int height)
 {
+	long long x;
 	bool bg_full;
-	unsigned long wp;
+	unsigned long wp, wp_delta;
 
 	if (!znr_bg_has_wp(bg))
 		return;
@@ -422,8 +424,20 @@ static void znr_gui_draw_bg_written(struct znr_blockgroup *bg,
 	}
 
 	/* Written space in blockgroup */
-	znr_gui_draw_wp_rect(cr, &znrg.color_seqw, 0, 0, width, height, wp,
-			     bg->nr_sectors);
+	x = znr_gui_draw_wp_rect(cr, &znrg.color_seqw, 0, 0, width, height, wp,
+				 bg->nr_sectors);
+
+	/* To draw the delta, make sure both write pointers are valid. */
+	if (!(bg->flags & ZNR_BG_HAS_FS_WP &&
+	      bg->flags & ZNR_BG_HAS_DEV_ZONE_WP))
+		return;
+
+	wp_delta = bg->fs_wp - bg->dev_zone_wp;
+	if (!wp_delta)
+		return;
+
+	znr_gui_draw_wp_rect(cr, &znrg.color_delta, x, 0, width, height,
+			     wp_delta, bg->nr_sectors);
 }
 
 static void znr_gui_draw_bg_num(struct znr_gui_blockgroup *bg,
@@ -1031,33 +1045,33 @@ static void znr_gui_draw_legend_cb(GtkDrawingArea *drawing_area,
 	gint x = 80, y = 8;
 	GtkWidget *widget = GTK_WIDGET(drawing_area);
 
-	/* Set font */
+	/* Set font. */
 	cairo_select_font_face(cr, "Monospace",
 			       CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 	cairo_set_font_size(cr, 10);
 
-	/* Blockgroup spans conventional zones legend */
+	/* Blockgroup backed by conventional zones. */
 	znr_gui_draw_legend("Conventional",
 			    &znrg.color_conv, cr, &x, y, widget);
 
-        /*
-         * If the device is not zoned, until we can display an allocation
-         * pointer for emulated zones, keeps sequential unwritten/written
-         * legends hidden.
-         */
-        if (znr.dev.is_zoned) {
-                /* Blockgroup spans sequential zones legend */
-                znr_gui_draw_legend("Sequential (Unwritten)",
-                                    &znrg.color_seq, cr, &x, y, widget);
+	/* Blockgroup backed by sequential write zones. */
+	znr_gui_draw_legend("Sequential (free)",
+			    &znrg.color_seq, cr, &x, y, widget);
 
-                /* Sequential written zones legend */
-                znr_gui_draw_legend("Sequential (Written)",
-                                    &znrg.color_seqw, cr, &x, y, widget);
-        }
+	/* Blockgroup sequentially written (write-pointer). */
+	znr_gui_draw_legend("Sequential (Written)",
+			    &znrg.color_seqw, cr, &x, y, widget);
 
-	/* Extent highlight legend */
+	/* File extent highlight. */
 	znr_gui_draw_legend("File Extent",
 			    &znrg.color_extent, cr, &x, y, widget);
+
+	/*
+	 * Difference of the filesystem allocated and the device
+	 * zone write pointer.
+	 */
+	znr_gui_draw_legend("Unwritten (allocated, not written)",
+			    &znrg.color_delta, cr, &x, y, widget);
 }
 
 static void znr_gui_bg_da_size(int *width, int *height)
@@ -1535,6 +1549,7 @@ static void znr_gui_create_app(GtkApplication *app, gpointer user_data)
 	gdk_rgba_parse(&znrg.color_conv, "Magenta");
 	gdk_rgba_parse(&znrg.color_seq, "#25bb00ff");
 	gdk_rgba_parse(&znrg.color_seqw, "Red");
+	gdk_rgba_parse(&znrg.color_delta, "Orange");
 	gdk_rgba_parse(&znrg.color_text, "Black");
 	gdk_rgba_parse(&znrg.color_jz, "Indigo");
 	gdk_rgba_parse(&znrg.color_extent, "Gold");
@@ -1589,7 +1604,7 @@ static void znr_gui_create_app(GtkApplication *app, gpointer user_data)
 
 	/* Legend drawing area */
 	da = gtk_drawing_area_new();
-	gtk_widget_set_size_request(da, 600, 14);
+	gtk_widget_set_size_request(da, 800, 14);
 	gtk_drawing_area_set_draw_func(GTK_DRAWING_AREA(da),
 			znr_gui_draw_legend_cb, NULL, NULL);
 	gtk_box_append(GTK_BOX(hbox), da);
