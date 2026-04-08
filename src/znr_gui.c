@@ -914,6 +914,7 @@ static void znr_gui_blockgroup_click_cb(GtkGestureClick *self, gint n_press,
 	extents_info = znr_gui_extent_info(extents, nr_extents, NULL);
 	if (!extents_info) {
 		znr_gui_err("Failed to get extent information\n", NULL);
+		free(extents);
 		return;
 	}
 
