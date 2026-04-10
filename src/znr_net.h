@@ -55,6 +55,7 @@ enum znr_net_req_id {
 	ZNR_NET_FILE_EXTENTS,
 	ZNR_NET_EXTENTS_IN_RANGE,
 	ZNR_NET_BLOCKGROUPS,
+	ZNR_NET_REPORT_BLOCKGROUPS,
 };
 
 struct znr_net_mntdir_info {
@@ -136,5 +137,8 @@ int znr_net_get_extents_in_range(struct znr_net_client *ncli,
 				 unsigned int *nr_extents);
 int znr_net_get_blockgroups(struct znr_net_client *ncli,
 			    struct znr_blockgroup **bgs, unsigned int *nr_bgs);
+int znr_net_get_blockgroup_report(struct znr_net_client *ncli,
+				  struct znr_blockgroup *bgs,
+				  unsigned int bg_no, unsigned int nr_bgs);
 
 #endif /* ZNR_NET_H */

@@ -271,16 +271,19 @@ int znr_fs_get_extents_in_range(unsigned long long sector,
 		return znr_net_get_extents_in_range(&znr.ncli, sector,
 						    nr_sectors, ext, nr_ext);
 
-	return znr.mnt_dir.fs->ops->get_extents_in_range(sector,
-						nr_sectors, ext, nr_ext);
+	return znr.mnt_dir.fs->ops->get_extents_in_range(sector, nr_sectors,
+							 ext, nr_ext);
 }
 
 int znr_fs_report_blockgroups(struct znr_blockgroup *bgs,
 			      unsigned int bg_no,
 			      unsigned int nr_bgs)
 {
-	return znr.mnt_dir.fs->ops->report_blockgroups(bgs, bg_no,
-						       nr_bgs);
+	if (znr.is_net_client)
+		return znr_net_get_blockgroup_report(&znr.ncli, bgs, bg_no,
+						     nr_bgs);
+
+	return znr.mnt_dir.fs->ops->report_blockgroups(bgs, bg_no, nr_bgs);
 }
 
 int znr_fs_get_blockgroups(struct znr_blockgroup **bgs,
