@@ -370,11 +370,32 @@ static void znr_gui_update(void)
 		gtk_widget_queue_draw(GTK_WIDGET(value));
 }
 
+static inline void znr_gui_draw_rect(cairo_t *cr, GdkRGBA *color, double x,
+				     double y, double width, double height)
+{
+	gdk_cairo_set_source_rgba(cr, color);
+	cairo_rectangle(cr, x, y, width, height);
+	cairo_fill(cr);
+}
+
+static inline long long znr_gui_draw_wp_rect(cairo_t *cr, GdkRGBA *color,
+					     double x, double y,
+					     long long width, long long height,
+					     unsigned long write_pointer,
+					     unsigned long max_nr_sectors)
+{
+	long long w = width * write_pointer / max_nr_sectors;
+
+	if (w > width)
+		w = width;
+
+	znr_gui_draw_rect(cr, color, x, 0, w, height);
+	return w;
+}
+
 static void znr_gui_draw_bg_written(struct znr_blockgroup *bg,
 				    cairo_t *cr, int width, int height)
 {
-	long long w;
-
 	if (!bg->nr_zones)
 		return;
 
@@ -382,14 +403,8 @@ static void znr_gui_draw_bg_written(struct znr_blockgroup *bg,
 		return;
 
 	/* Written space in blockgroup */
-	w = (long long)width *
-		bg->wp_sector / bg->nr_sectors;
-	if (w > width)
-		w = width;
-
-	gdk_cairo_set_source_rgba(cr, &znrg.color_seqw);
-	cairo_rectangle(cr, 0, 0, w, height);
-	cairo_fill(cr);
+	znr_gui_draw_wp_rect(cr, &znrg.color_seqw, 0, 0, width, height,
+			     bg->wp_sector, bg->nr_sectors);
 }
 
 static void znr_gui_draw_bg_num(struct znr_gui_blockgroup *bg,
