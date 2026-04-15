@@ -917,6 +917,7 @@ static void znr_gui_click_bg_cb(GtkGestureClick *self, gint n_press,
 	unsigned int nr_extents;
 	GtkTextIter iter;
 	char wp_str[32] = "N/A";
+	char nr_zones_str[16] = "N/A";
 	char *extents_info = NULL;
 	char info[256];
 	char tab_label[32], *bg_info;
@@ -979,9 +980,15 @@ static void znr_gui_click_bg_cb(GtkGestureClick *self, gint n_press,
 			snprintf(wp_str, sizeof(wp_str), "%lu", wp);
 	}
 
+	if (bg->nr_zones)
+		snprintf(nr_zones_str, sizeof(nr_zones_str), "%lu",
+			 bg->nr_zones);
+
 	snprintf(info, sizeof(info),
-		 "<b>Blockgroup %u</b>\nSector: %lu\nSize: %lu sectors\nWP: %s\n\n",
-		 gui_bg->bg_no, bg->sector, bg->nr_sectors, wp_str);
+		 "<b>Blockgroup %u</b>\nSector: 0x%lx\nSize: 0x%lx sectors\n"
+		 "WP: %s\nNumber of backing zones: %s\n",
+		 gui_bg->bg_no, bg->sector, bg->nr_sectors, wp_str,
+		 nr_zones_str);
 
 	bg_info = info;
 	gtk_text_buffer_insert_markup(text_buffer, &iter, bg_info,
