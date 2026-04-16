@@ -14,24 +14,25 @@
 #include "znr_bg.h"
 #include "znr_fs.h"
 
-int znr_bg_get_blockgroups(struct znr_bg **blockgroups,
-			   unsigned int *nr_blockgroups)
+int znr_bg_get_blockgroups(struct znr_blockgroup **bgs,
+			   unsigned int *nr_bgs)
 {
-	return znr_fs_get_blockgroups(blockgroups, nr_blockgroups);
+	return znr_fs_get_blockgroups(bgs, nr_bgs);
 }
 
-void znr_bgs_destroy(struct znr_bg *blockgroups, unsigned int nr_blockgroups)
+void znr_bg_destroy_blockgroups(struct znr_blockgroup *bgs,
+				unsigned int nr_bgs)
 {
 	unsigned int i;
 
-	for (i = 0; i < nr_blockgroups; i++) {
-		free(blockgroups[i].zones);
-		blockgroups[i].zones = NULL;
+	for (i = 0; i < nr_bgs; i++) {
+		free(bgs[i].zones);
+		bgs[i].zones = NULL;
 	}
 }
 
-static int znr_get_bg_zone_mapping(struct znr_bg *blockgroups,
-				   unsigned int nr_blockgroups,
+static int znr_get_bg_zone_mapping(struct znr_blockgroup *bgs,
+				   unsigned int nr_bgs,
 				   struct blk_zone *zones,
 				   unsigned int nr_zones,
 				   unsigned int zone_sectors)
@@ -41,38 +42,38 @@ static int znr_get_bg_zone_mapping(struct znr_bg *blockgroups,
 	int ret;
 
 	znr_verbose("Mapping %u zones to %u blockgroups\n", nr_zones,
-		    nr_blockgroups);
+		    nr_bgs);
 
-	if (!blockgroups || !zones)
+	if (!bgs || !zones)
 		return -EINVAL;
 
-	if (nr_zones < nr_blockgroups)
+	if (nr_zones < nr_bgs)
 		return -EINVAL;
 
-	if (nr_blockgroups > znr.nr_blockgroups)
+	if (nr_bgs > znr.nr_bgs)
 		return -EINVAL;
 
 	if (nr_zones > znr.nr_zones)
 		return -EINVAL;
 
-	for (i = 0; i < nr_blockgroups; ++i) {
+	for (i = 0; i < nr_bgs; ++i) {
 		/*
 		 * Max zones mapped to a blockgroup plus some padding for
 		 * overlap between blockgroups (e.g XFS allocation groups).
 		 */
 		max_zones_per_bg =
-			(blockgroups[i].nr_sectors / zone_sectors) + 4;
-		blockgroups[i].nr_zones = max_zones_per_bg;
-		blockgroups[i].zones =
+			(bgs[i].nr_sectors / zone_sectors) + 4;
+		bgs[i].nr_zones = max_zones_per_bg;
+		bgs[i].zones =
 			calloc(max_zones_per_bg, sizeof(struct blk_zone *));
-		if (!blockgroups[i].zones) {
+		if (!bgs[i].zones) {
 			fprintf(stderr, "No memory for blockgroup zone array\n");
 			ret = -ENOMEM;
 			goto out_free;
 		}
 
-		bg_sector_end = blockgroups[i].sector +
-				blockgroups[i].nr_sectors;
+		bg_sector_end = bgs[i].sector +
+				bgs[i].nr_sectors;
 		bg_zone_idx = 0;
 
 		/*
@@ -84,7 +85,7 @@ static int znr_get_bg_zone_mapping(struct znr_bg *blockgroups,
 			zone_sector_end = zones[j].start + zones[j].len;
 
 			/* Skip zones that end before this blockgroup starts */
-			if (zone_sector_end <= blockgroups[i].sector) {
+			if (zone_sector_end <= bgs[i].sector) {
 				zone_start_idx = j + 1;
 				continue;
 			}
@@ -97,7 +98,7 @@ static int znr_get_bg_zone_mapping(struct znr_bg *blockgroups,
 				break;
 
 			/* This zone overlaps with the i'th blockgroup */
-			blockgroups[i].zones[bg_zone_idx] = &zones[j];
+			bgs[i].zones[bg_zone_idx] = &zones[j];
 			bg_zone_idx++;
 			if (bg_zone_idx > max_zones_per_bg) {
 				fprintf(stderr,
@@ -106,51 +107,51 @@ static int znr_get_bg_zone_mapping(struct znr_bg *blockgroups,
 				ret = -EINVAL;
 				goto out_free;
 			}
-			blockgroups[i].nr_zones = bg_zone_idx;
+			bgs[i].nr_zones = bg_zone_idx;
 		}
 
-		if (!blockgroups[i].nr_zones) {
+		if (!bgs[i].nr_zones) {
 			fprintf(stderr,
 				"No zones mapped to blockgroup %u\n", i);
 			ret = -EINVAL;
 			goto out_free;
 		}
 
-		blockgroups[i].flags = blockgroups[i].zones[0]->type;
-		if (blockgroups[i].flags == BLK_ZONE_TYPE_SEQWRITE_REQ)
-			blockgroups[i].wp_sector =
-				blockgroups[i].zones[0]->wp -
-				blockgroups[i].sector;
+		bgs[i].flags = bgs[i].zones[0]->type;
+		if (bgs[i].flags == BLK_ZONE_TYPE_SEQWRITE_REQ)
+			bgs[i].wp_sector =
+				bgs[i].zones[0]->wp -
+				bgs[i].sector;
 		else
-			blockgroups[i].wp_sector = 0;
+			bgs[i].wp_sector = 0;
 	}
 
 	return 0;
 
 out_free:
-	znr_bgs_destroy(blockgroups, i);
+	znr_bg_destroy_blockgroups(bgs, i);
 	return ret;
 }
 
 static int znr_bg_to_zno(struct znr_device *dev,
-			 struct znr_bg *blockgroup_start,
-			 struct znr_bg *blockgroup_end,
+			 struct znr_blockgroup *bg_start,
+			 struct znr_blockgroup *bg_end,
 			 unsigned int *zno_start, unsigned int *zno_end)
 {
 	unsigned int start_zone_no, end_zone_no;
 
-	if (!blockgroup_start || !blockgroup_end || !zno_start || !zno_end)
+	if (!bg_start || !bg_end || !zno_start || !zno_end)
 		return -EINVAL;
 
-	if (blockgroup_start->sector > blockgroup_end->sector)
+	if (bg_start->sector > bg_end->sector)
 		return -EINVAL;
 	/*
 	 * A blockgroup could use multiple zones on the device, in which case,
 	 * we need to get the actual zone numbers on the device to do a zone
 	 * report
 	 */
-	start_zone_no = blockgroup_start->sector / dev->zone_sectors;
-	end_zone_no = (blockgroup_end->sector + blockgroup_end->nr_sectors) /
+	start_zone_no = bg_start->sector / dev->zone_sectors;
+	end_zone_no = (bg_end->sector + bg_end->nr_sectors) /
 		dev->zone_sectors;
 
 	if (end_zone_no > dev->nr_zones) {
@@ -165,16 +166,16 @@ static int znr_bg_to_zno(struct znr_device *dev,
 }
 
 static int znr_bg_report(struct znr_device *dev, struct blk_zone *zones,
-			 unsigned int max_zones, struct znr_bg *blockgroups,
-			 unsigned int blockgroup_no,
-			 unsigned int nr_blockgroups)
+			 unsigned int max_zones, struct znr_blockgroup *bgs,
+			 unsigned int bg_no,
+			 unsigned int nr_bgs)
 {
 	unsigned int last_zone_no, start_zone_no, nr_zones, i;
 	unsigned long max_sector;
 	int ret;
 
-	if (!blockgroups || !nr_blockgroups ||
-	    blockgroup_no + nr_blockgroups > znr.nr_blockgroups)
+	if (!bgs || !nr_bgs ||
+	    bg_no + nr_bgs > znr.nr_bgs)
 		return -EINVAL;
 
 	if (!dev->is_zoned) {
@@ -183,28 +184,27 @@ static int znr_bg_report(struct znr_device *dev, struct blk_zone *zones,
 		 * conventional. When filesystems support it we can add a
 		 * fetch the allocation pointer directly from the FS.
 		 */
-		for (i = 0; i < nr_blockgroups; i++)
-			blockgroups[i].flags = BLK_ZONE_TYPE_CONVENTIONAL;
-		return nr_blockgroups;
+		for (i = 0; i < nr_bgs; i++)
+			bgs[i].flags = BLK_ZONE_TYPE_CONVENTIONAL;
+		return nr_bgs;
 	}
 
 	if (!dev || !zones || !max_zones || max_zones > dev->nr_zones)
 		return -EINVAL;
 
 	znr_verbose("Do blockgroup reports from group %u, %u groups\n",
-		    blockgroup_no, nr_blockgroups);
+		    bg_no, nr_bgs);
 
 	/* The last sector in this set of blockgroups */
-	max_sector = blockgroups[nr_blockgroups - 1].sector +
-		     blockgroups[nr_blockgroups - 1].nr_sectors;
+	max_sector = bgs[nr_bgs - 1].sector +
+		     bgs[nr_bgs - 1].nr_sectors;
 	if (max_sector > dev->nr_sectors) {
 		fprintf(stderr, "Sector out of bounds: sector: %ld | max: %lld\n",
 			max_sector, dev->nr_sectors);
 		return -EINVAL;
 	}
 
-	ret = znr_bg_to_zno(dev, blockgroups,
-			    &blockgroups[blockgroup_no + (nr_blockgroups - 1)],
+	ret = znr_bg_to_zno(dev, bgs, &bgs[bg_no + (nr_bgs - 1)],
 			    &start_zone_no, &last_zone_no);
 	if (ret)
 		return ret;
@@ -219,24 +219,24 @@ static int znr_bg_report(struct znr_device *dev, struct blk_zone *zones,
 	if ((unsigned int)ret != nr_zones)
 		return -EINVAL;
 
-	ret = znr_get_bg_zone_mapping(&blockgroups[blockgroup_no],
-				      nr_blockgroups,
+	ret = znr_get_bg_zone_mapping(&bgs[bg_no],
+				      nr_bgs,
 				      &zones[start_zone_no], nr_zones,
 				      dev->zone_sectors);
 	if (ret)
 		return ret;
 
-	return nr_blockgroups;
+	return nr_bgs;
 }
 
 int znr_bg_refresh(struct znr_device *dev, struct blk_zone *zones,
-		   unsigned int max_zones, struct znr_bg *blockgroups,
-		   unsigned int blockgroup_no, unsigned int nr_blockgroups)
+		   unsigned int max_zones, struct znr_blockgroup *bgs,
+		   unsigned int bg_no, unsigned int nr_bgs)
 {
 	znr_verbose("Refreshing %u blockgroups, starting at blockgroup %u\n",
-		    nr_blockgroups, blockgroup_no);
+		    nr_bgs, bg_no);
 
-	return znr_bg_report(dev, zones, max_zones, blockgroups,
-			     blockgroup_no, nr_blockgroups);
+	return znr_bg_report(dev, zones, max_zones, bgs,
+			     bg_no, nr_bgs);
 }
 

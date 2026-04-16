@@ -371,20 +371,20 @@ reply:
 static int znr_net_send_blockgroups(struct znr_net_client *ncli,
 				    struct znr_net_req *req)
 {
-	struct znr_bg *bg = NULL, *bg_start;
-	unsigned int data_size, nr_blockgroups, i;
+	struct znr_blockgroup *bg = NULL, *bg_start;
+	unsigned int data_size, nr_bgs, i;
 	int ret, err = 0;
 
 	znr_verbose("Sending blockgroups information\n");
 
-	ret = znr_bg_get_blockgroups(&bg, &nr_blockgroups);
+	ret = znr_bg_get_blockgroups(&bg, &nr_bgs);
 	if (ret < 0) {
 		fprintf(stderr, "Failed to get blockgroups\n");
 		err = ret;
 		goto err_reply;
 	}
 	bg_start = bg;
-	for (i = 0; i < nr_blockgroups; i++, bg++) {
+	for (i = 0; i < nr_bgs; i++, bg++) {
 		bg->sector = htonll(bg->sector);
 		bg->nr_sectors = htonll(bg->nr_sectors);
 		bg->wp_sector = htonll(bg->wp_sector);
@@ -392,8 +392,8 @@ static int znr_net_send_blockgroups(struct znr_net_client *ncli,
 	}
 
 	/* First send the number of blockgroups */
-	data_size = sizeof(nr_blockgroups);
-	ret = znr_net_send_rep(ncli, ZNR_NET_BLOCKGROUPS, err, &nr_blockgroups,
+	data_size = sizeof(nr_bgs);
+	ret = znr_net_send_rep(ncli, ZNR_NET_BLOCKGROUPS, err, &nr_bgs,
 			       data_size);
 	if (ret) {
 		znr_err("Failed to send number of blockgroups\n");
@@ -401,11 +401,11 @@ static int znr_net_send_blockgroups(struct znr_net_client *ncli,
 	}
 
 	/* Send the blockgroups */
-	data_size = sizeof(struct znr_bg) * nr_blockgroups;
+	data_size = sizeof(struct znr_blockgroup) * nr_bgs;
 	ret = znr_net_send_rep(ncli, ZNR_NET_BLOCKGROUPS, err,
 			       bg_start, data_size);
 	if (ret)
-		znr_err("Failed to send %u blockgroups\n", nr_blockgroups);
+		znr_err("Failed to send %u blockgroups\n", nr_bgs);
 free:
 	free(bg_start);
 	return ret;
@@ -983,18 +983,18 @@ int znr_net_get_extents_in_range(struct znr_net_client *ncli,
 }
 
 int znr_net_get_blockgroups(struct znr_net_client *ncli,
-			    struct znr_bg **blockgroups,
-			    unsigned int *nr_blockgroups)
+			    struct znr_blockgroup **bgs,
+			    unsigned int *nr_bgs)
 {
 	void *data = NULL;
 	size_t data_size = 0;
-	struct znr_bg *bg;
+	struct znr_blockgroup *bg;
 	unsigned int i;
 	int err, ret;
 
 	znr_verbose("Sending get blockgroup information\n");
 
-	if (!nr_blockgroups || !blockgroups)
+	if (!nr_bgs || !bgs)
 		return -EINVAL;
 
 	ret = znr_net_send_req(ncli, ZNR_NET_BLOCKGROUPS, 0, 0, 0, 0, NULL);
@@ -1009,17 +1009,17 @@ int znr_net_get_blockgroups(struct znr_net_client *ncli,
 		return ret;
 	}
 
-	if (data_size != sizeof(*nr_blockgroups)) {
+	if (data_size != sizeof(*nr_bgs)) {
 		fprintf(stderr, "Number of blockgroups, receive error\n");
 		ret = -EINVAL;
 		goto free;
 	}
 
-	*nr_blockgroups = *((unsigned int *)data);
+	*nr_bgs = *((unsigned int *)data);
 	free(data);
 
 	znr_verbose("Get blockgroups: attempting to retrieve  %u blockgroups\n",
-		    *nr_blockgroups);
+		    *nr_bgs);
 	/* Get blockgroups data */
 	ret = znr_net_recv_rep(ncli, ZNR_NET_BLOCKGROUPS, &err,
 			       &data, &data_size);
@@ -1028,26 +1028,26 @@ int znr_net_get_blockgroups(struct znr_net_client *ncli,
 		return ret;
 	}
 
-	if (data_size != sizeof(struct znr_bg) * (*nr_blockgroups)) {
+	if (data_size != sizeof(struct znr_blockgroup) * (*nr_bgs)) {
 		fprintf(stderr, "Invalid blockgroups information received\n");
 		ret = -EINVAL;
 		goto free;
 	}
 
 	znr_verbose("Get blockgroups: retrieved %u blockgroups\n",
-		    *nr_blockgroups);
+		    *nr_bgs);
 
 	bg = data;
 	/* It is the callers responsibility to free this memory */
-	*blockgroups = bg;
-	for (i = 0; i < *nr_blockgroups; i++, bg++) {
+	*bgs = bg;
+	for (i = 0; i < *nr_bgs; i++, bg++) {
 		bg->sector = ntohll(bg->sector);
 		bg->nr_sectors = ntohll(bg->nr_sectors);
 		bg->wp_sector = ntohll(bg->wp_sector);
 		bg->flags = ntohl(bg->flags);
 	}
 
-	return (int)*nr_blockgroups;
+	return (int)*nr_bgs;
 free:
 	free(data);
 

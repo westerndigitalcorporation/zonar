@@ -45,8 +45,8 @@ struct znr {
 	/*
 	 * Blockgroups information.
 	 */
-	unsigned int            nr_blockgroups;
-	struct znr_bg           *blockgroups;
+	unsigned int            nr_bgs;
+	struct znr_blockgroup   *bgs;
 
 	bool			abort;
 	bool			verbose;

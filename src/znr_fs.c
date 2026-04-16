@@ -275,14 +275,13 @@ int znr_fs_get_extents_in_range(unsigned long long sector,
 						nr_sectors, ext, nr_ext);
 }
 
-int znr_fs_get_blockgroups(struct znr_bg **blockgroups,
-			   unsigned int *nr_blockgroups)
+int znr_fs_get_blockgroups(struct znr_blockgroup **bgs, unsigned int *nr_bgs)
 {
 	if (znr.is_net_client)
-		return znr_net_get_blockgroups(&znr.ncli, blockgroups,
-					       nr_blockgroups);
+		return znr_net_get_blockgroups(&znr.ncli, bgs,
+					       nr_bgs);
 
-	return znr.mnt_dir.fs->ops->get_blockgroups(blockgroups, nr_blockgroups);
+	return znr.mnt_dir.fs->ops->get_blockgroups(bgs, nr_bgs);
 }
 
 int znr_fs_open(const char *path)

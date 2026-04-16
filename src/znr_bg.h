@@ -8,7 +8,7 @@
 /*
  * Block group information.
  */
-struct znr_bg {
+struct znr_blockgroup {
         /* Starting sector */
 	unsigned long sector;
 
@@ -25,13 +25,14 @@ struct znr_bg {
 	unsigned long nr_zones;
 };
 
-int znr_bg_get_blockgroups(struct znr_bg **blockgroups,
-			   unsigned int *nr_blockgroups);
+int znr_bg_get_blockgroups(struct znr_blockgroup **bgs,
+			   unsigned int *nr_bgs);
 
 int znr_bg_refresh(struct znr_device *dev, struct blk_zone *zones,
-		   unsigned int max_zones, struct znr_bg *blockgroups,
-		   unsigned int blockgroup_num, unsigned int nr_blockgroups);
+		   unsigned int max_zones, struct znr_blockgroup *bgs,
+		   unsigned int bg_num, unsigned int nr_bgs);
 
-void znr_bgs_destroy(struct znr_bg *blockgroups, unsigned int nr_blockgroups);
+void znr_bg_destroy_blockgroups(struct znr_blockgroup *bgs,
+				unsigned int nr_bgs);
 
 #endif /* ZNR_BG_H */

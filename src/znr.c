@@ -27,8 +27,8 @@ void znr_close(void)
 	znr_fs_close();
 	znr_dev_close();
 	free(znr.blk_zones);
-	znr_bgs_destroy(znr.blockgroups, znr.nr_blockgroups);
-	free(znr.blockgroups);
+	znr_bg_destroy_blockgroups(znr.bgs, znr.nr_bgs);
+	free(znr.bgs);
 }
 
 int znr_open(const char *mntdir)
@@ -58,7 +58,7 @@ int znr_open(const char *mntdir)
 	if (!znr.blk_zones)
 		return -ENOMEM;
 
-	ret = znr_bg_get_blockgroups(&znr.blockgroups, &znr.nr_blockgroups);
+	ret = znr_bg_get_blockgroups(&znr.bgs, &znr.nr_bgs);
 	if (ret < 0) {
 		fprintf(stderr, "Failed to get blockgroups\n");
 		goto err;
@@ -90,16 +90,16 @@ int znr_open(const char *mntdir)
 	}
 
 	ret = znr_bg_refresh(&znr.dev, znr.blk_zones, znr.nr_zones,
-			     znr.blockgroups, 0, znr.nr_blockgroups);
+			     znr.bgs, 0, znr.nr_bgs);
 	if (ret < 0) {
 		fprintf(stderr, "Failed to report block groups: %d\n", ret);
 		goto err;
 	}
 
-	if ((unsigned int)ret != znr.nr_blockgroups) {
+	if ((unsigned int)ret != znr.nr_bgs) {
 		fprintf(stderr,
 			"%s: Got %d blockgroups, expected %u reported\n",
-			znr.dev.devname, ret, znr.nr_blockgroups);
+			znr.dev.devname, ret, znr.nr_bgs);
 		ret = -EINVAL;
 		goto err;
 	}

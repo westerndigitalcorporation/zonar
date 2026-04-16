@@ -461,38 +461,38 @@ out:
 	return ret;
 }
 
-static int znr_xfs_get_nr_blockgroups(unsigned int *nr_blockgroups)
+static int znr_xfs_get_nr_blockgroups(unsigned int *nr_bgs)
 {
-	unsigned long nr_bgs;
+	unsigned long num_bgs;
 
 	if (!fs_geo.blocksize)
 		return -ENODEV;
 
-	nr_bgs = (unsigned long)fs_geo.agcount + fs_geo.rgcount;
-	if (nr_bgs > UINT_MAX)
+	num_bgs = (unsigned long)fs_geo.agcount + fs_geo.rgcount;
+	if (num_bgs > UINT_MAX)
 		return -ENOSPC;
 
-	*nr_blockgroups = nr_bgs;
+	*nr_bgs = num_bgs;
 	return 0;
 }
 
-static int znr_xfs_get_blockgroups(struct znr_bg **blockgroups,
-				   unsigned int *nr_blockgroups)
+static int znr_xfs_get_blockgroups(struct znr_blockgroup **bgs_out,
+				   unsigned int *nr_bgs)
 {
-	struct znr_bg *bgs = NULL;
-	unsigned int max_blockgroups = 0;
+	struct znr_blockgroup *bgs = NULL;
+	unsigned int max_bgs = 0;
 	unsigned long rtstart, bbperag, bbperrg, rgcount, agcount;
 	unsigned int ag, rg, idx = 0;
 	int ret;
 
-	if (!blockgroups || !nr_blockgroups)
+	if (!bgs_out || !nr_bgs)
 		return -EINVAL;
 
-	ret = znr_xfs_get_nr_blockgroups(&max_blockgroups);
+	ret = znr_xfs_get_nr_blockgroups(&max_bgs);
 	if (ret)
 		return ret;
 
-	bgs = calloc(max_blockgroups, sizeof(struct znr_bg));
+	bgs = calloc(max_bgs, sizeof(struct znr_blockgroup));
 	if (!bgs)
 		return -ENOMEM;
 
@@ -503,18 +503,18 @@ static int znr_xfs_get_blockgroups(struct znr_bg **blockgroups,
 	agcount = fs_geo.agcount;
 
 	/* Into blockgroups, contiguously append all AGs and RGs. */
-	for (ag = 0; ag < agcount && idx < max_blockgroups; ag++, idx++) {
+	for (ag = 0; ag < agcount && idx < max_bgs; ag++, idx++) {
 		bgs[idx].sector = ag * bbperag;
 		bgs[idx].nr_sectors = bbperag;
 	}
 
-	for (rg = 0; rg < rgcount && idx < max_blockgroups; rg++, idx++) {
+	for (rg = 0; rg < rgcount && idx < max_bgs; rg++, idx++) {
 		bgs[idx].sector = rtstart + (rg * bbperrg);
 		bgs[idx].nr_sectors = bbperrg;
 	}
 
-	*blockgroups = bgs;
-	*nr_blockgroups = max_blockgroups;
+	*bgs_out = bgs;
+	*nr_bgs = max_bgs;
 	return 0;
 }
 

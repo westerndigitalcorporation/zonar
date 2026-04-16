@@ -115,7 +115,6 @@ int znr_net_get_extents_in_range(struct znr_net_client *ncli,
 				 struct znr_extent **extents,
 				 unsigned int *nr_extents);
 int znr_net_get_blockgroups(struct znr_net_client *ncli,
-			    struct znr_bg **blockgroups,
-			    unsigned int *nr_blockgroups);
+			    struct znr_blockgroup **bgs, unsigned int *nr_bgs);
 
 #endif /* ZNR_NET_H */
