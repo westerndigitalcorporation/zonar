@@ -1163,6 +1163,7 @@ static int znr_gui_get_first_bg_in_view(unsigned int *first_bg)
 {
 	GtkAdjustment *vadj;
 	int first_row;
+	int bgs_padding;
 	int bgh;
 	int row_pitch;
 
@@ -1180,6 +1181,14 @@ static int znr_gui_get_first_bg_in_view(unsigned int *first_bg)
 	first_row = gtk_adjustment_get_value(vadj) / row_pitch;
 	*first_bg = first_row * znrg.nr_col;
 
+	/*
+	 * Add an extra row of blockgroups to be reported above the viewport,
+	 * when scrolling with auto-refresh enabled, this avoids the write
+	 * pointer spontaneosly spawning on blockgroups coming into view
+	 */
+	bgs_padding = *first_bg - znrg.nr_col;
+	if (bgs_padding > 0)
+		*first_bg = bgs_padding;
 	return 0;
 }
 
