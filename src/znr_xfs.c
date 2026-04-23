@@ -293,11 +293,13 @@ static int znr_xfs_get_range_extents(unsigned long long sector,
 	l->fmr_owner = 0;
 	l->fmr_offset = 0;
 	l->fmr_flags = 0;
+	l->fmr_device = 0;
 
 	h->fmr_physical = BBTOB(sector_end);
 	h->fmr_owner = ULLONG_MAX;
 	h->fmr_flags = UINT_MAX;
 	h->fmr_offset = ULLONG_MAX;
+	h->fmr_device = UINT_MAX;
 
 	/* Determine device type from filesystem geometry */
 	if (fs_geo.flags & XFS_FSOP_GEOM_FLAGS_ZONED) {
@@ -308,10 +310,6 @@ static int znr_xfs_get_range_extents(unsigned long long sector,
 			l->fmr_device = XFS_DEV_DATA;
 			h->fmr_device = XFS_DEV_DATA;
 		}
-	} else {
-		fprintf(stderr, "TODO: Unsupported filesystem geometry\n");
-		ret = -ENOTSUP;
-		goto out;
 	}
 
 	/*
@@ -383,13 +381,12 @@ static int znr_xfs_get_range_extents(unsigned long long sector,
 			    BTOBBT(p->fmr_physical) >= sector_end)
 				continue;
 
-			if (p->fmr_device == XFS_DEV_DATA) {
+			if (p->fmr_device != XFS_DEV_RT) {
 				agno = p->fmr_physical / bperag;
 				agoff = p->fmr_physical - (agno * bperag);
 				ag_rg = "AG";
 
-			} else if (p->fmr_device == XFS_DEV_RT &&
-				   fs_geo.rgcount > 0) {
+			} else {
 				start = p->fmr_physical -
 					fs_geo.rtstart * fs_geo.blocksize;
 				agno = start / bperrtg;
@@ -397,8 +394,6 @@ static int znr_xfs_get_range_extents(unsigned long long sector,
 					agno = -1;
 				agoff = start % bperrtg;
 				ag_rg = "RG";
-			} else {
-				continue;
 			}
 
 			if (nr_ext >= max_extents) {
