@@ -234,6 +234,8 @@ Options:
 - **Blockgroups Layer** (`znr_bg.c`, `znr_bg.h`)
   - Abstraction layer over the device and filesystems
   - Handling mapping blockgroups to physical zones
+  - Blockgroup reports, where a blockgroups write-pointer is retrieved by
+    from filesystem (if supported).
 
 - **Filesystem Layer** (`znr_fs.c`, `znr_fs.h`):
   - Filesystem abstraction interface
@@ -275,6 +277,8 @@ The network protocol uses a custom binary format over TCP:
   - `ZNR_NET_EXTENTS_IN_RANGE`: Get all file extents in the sector range
                                 specified.
   - `ZNR_NET_BLOCKGROUPS`: Get the blockgroups of the mounted filesystem
+  - `ZNR_NET_REPORT_BLOCKGROUPS`: A blockgroup report updates the blockgroups
+                                  information from the filesystem.
 
 - **Data Format**: All multi-byte integers are transmitted in network byte order
                    (big-endian)
