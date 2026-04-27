@@ -95,8 +95,9 @@ static int znr_net_send_req(struct znr_net_client *ncli,
 		if (!params)
 			return -1;
 		fs_path = params;
-		strncpy((char *)req.params.fs_path.p, (char *)fs_path->p,
-			sizeof(req.params.fs_path.p) - 1);
+		snprintf((char *)req.params.fs_path.p,
+			 sizeof(req.params.fs_path.p), "%s",
+			 (char *)fs_path->p);
 		break;
 	case ZNR_NET_DEV_REP_ZONES:
 		if (!params)

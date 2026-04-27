@@ -917,7 +917,7 @@ static void znr_gui_click_bg_cb(GtkGestureClick *self, gint n_press,
 	unsigned int nr_extents;
 	GtkTextIter iter;
 	char wp_str[32] = "N/A";
-	char nr_zones_str[16] = "N/A";
+	char nr_zones_str[32] = "N/A";
 	char *extents_info = NULL;
 	char info[256];
 	char tab_label[32], *bg_info;

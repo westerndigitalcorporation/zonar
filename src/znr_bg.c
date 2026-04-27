@@ -182,7 +182,7 @@ static int znr_bg_report(struct znr_device *dev, struct blk_zone *zones,
 			 unsigned int bg_no,
 			 unsigned int nr_bgs)
 {
-	unsigned int last_zone_no, start_zone_no, nr_zones;
+	unsigned int last_zone_no, start_zone_no = 0, nr_zones = 0;
 	unsigned long max_sector;
 	int ret;
 
