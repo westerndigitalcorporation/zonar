@@ -576,7 +576,7 @@ static int znr_xfs_report_blockgroups(struct znr_blockgroup *bgs,
 {
 	unsigned long rtstart, bbperrg;
 	unsigned int max_bgs = 0;
-	unsigned int rgno;
+	unsigned int rgno, i = 0;
 	int ret;
 
 	/*
@@ -598,11 +598,16 @@ static int znr_xfs_report_blockgroups(struct znr_blockgroup *bgs,
 
 	bbperrg = bytes_per_rtgroup(&fs_geo) / BBSIZE;
 	rtstart = (off_t)fs_geo.rtstart * (off_t)fs_geo.blocksize / BBSIZE;
-	for (unsigned int i = 0; i < nr_bgs; i++) {
-		/* For AGs, do nothing. */
-		if (bgs[i].sector < rtstart)
-			continue;
 
+	/*
+	 * Skips AGs as there is nothing that need to be updated. We only
+	 * need to a do report on RGs as the RG writepointer may have
+	 * changed.
+	 */
+	if (bg_no < fs_geo.agcount)
+		i += fs_geo.agcount - bg_no;
+
+	for (; i < nr_bgs; i++) {
 		rgno = (bgs[i].sector - rtstart) / bbperrg;
 		ret = znr_xfs_get_rg_fs_write_pointer(rgno, &bgs[i]);
 		if (ret == -ENOTSUP)
