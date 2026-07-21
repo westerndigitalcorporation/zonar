@@ -243,7 +243,7 @@ static char *znr_gui_extent_info(struct znr_extent *extents,
 	 * - Safety margin: one extent.
 	 */
 	buf_size = 400 + (nr_extents + 1) * ZNR_FS_EXT_INFO_SIZE;
-	buf = calloc(buf_size, 1);
+	buf = calloc(1, buf_size);
 	if (!buf) {
 		fprintf(stderr,
 			"Failed to allocate memory for extent info\n");
