@@ -70,6 +70,14 @@ static int znr_fs_init_fs(struct znr_fs_file *f)
 	return f->fs->ops->init_fs(f);
 }
 
+static int znr_fs_destroy_fs(struct znr_fs_file *f)
+{
+	if (f->fs->ops->destroy_fs)
+		return f->fs->ops->destroy_fs();
+
+	return 0;
+}
+
 static void znr_fs_close_file(struct znr_fs_file *f)
 {
 	if (f->fd > 0)
@@ -452,5 +460,6 @@ end:
 
 void znr_fs_close(void)
 {
+	znr_fs_destroy_fs(&znr.mnt_dir.f);
 	znr_fs_clear_file(&znr.mnt_dir.f);
 }
