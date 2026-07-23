@@ -91,6 +91,7 @@ struct znr_mnt_dir {
  */
 struct znr_fs_ops {
 	int (*init_fs)(struct znr_fs_file *f);
+	int (*destroy_fs)(void);
 	int (*get_file_extents)(struct znr_fs_file *f,
 				struct znr_extent **extents,
 				unsigned int *nr_extents);

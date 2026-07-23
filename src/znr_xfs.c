@@ -154,6 +154,19 @@ static int znr_xfs_init_fs(struct znr_fs_file *f)
 	return 0;
 }
 
+static int znr_xfs_destroy_fs(void)
+{
+	struct znr_fs_xfs *xfs = znr_to_xfs_fs(&znr);
+
+	if (xfs->rt_path)
+		free(xfs->rt_path);
+
+	if (xfs->data_path)
+		free(xfs->data_path);
+
+	return 0;
+}
+
 /*
  * Get XFS file extents, based on xfsprogs/io/bmap.c
  */
@@ -729,6 +742,7 @@ static int znr_xfs_report_blockgroups(struct znr_blockgroup *bgs,
 
 const struct znr_fs_ops znr_xfs_ops = {
 	.init_fs		= znr_xfs_init_fs,
+	.destroy_fs		= znr_xfs_destroy_fs,
 	.get_file_extents	= znr_xfs_get_file_extents,
 	.get_extents_in_range	= znr_xfs_get_range_extents,
 	.get_blockgroups        = znr_xfs_get_blockgroups,
