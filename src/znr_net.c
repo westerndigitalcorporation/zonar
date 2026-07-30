@@ -440,6 +440,7 @@ static int znr_net_send_report_blockgroups(struct znr_net_client *ncli,
 		bg->nr_sectors = htonll(bg->nr_sectors);
 		bg->dev_zone_wp = htonll(bg->dev_zone_wp);
 		bg->fs_wp = htonll(bg->fs_wp);
+		bg->fs_device_type = htonl(bg->fs_device_type);
 		bg->flags = htonl(flags & ZNR_BG_SHARED_FLAGS);
 	}
 
@@ -458,6 +459,7 @@ static int znr_net_send_report_blockgroups(struct znr_net_client *ncli,
 		bg->nr_sectors = ntohll(bg->nr_sectors);
 		bg->dev_zone_wp = ntohll(bg->dev_zone_wp);
 		bg->fs_wp = ntohll(bg->fs_wp);
+		bg->fs_device_type = ntohl(bg->fs_device_type);
 		bg->flags = flags;
 	}
 
@@ -488,7 +490,8 @@ static int znr_net_send_blockgroups(struct znr_net_client *ncli,
 		bg->sector = htonll(bg->sector);
 		bg->nr_sectors = htonll(bg->nr_sectors);
 		bg->dev_zone_wp = htonll(bg->dev_zone_wp);
-		bg->fs_wp = ntohll(bg->fs_wp);
+		bg->fs_wp = htonll(bg->fs_wp);
+		bg->fs_device_type = htonl(bg->fs_device_type);
 		bg->flags = htonl(bg->flags);
 	}
 
@@ -1141,6 +1144,7 @@ int znr_net_get_blockgroup_report(struct znr_net_client *ncli,
 	for (i = 0; i < nr_bgs; i++, recv_bgs++, bgs++) {
 		bgs->dev_zone_wp = ntohll(recv_bgs->dev_zone_wp);
 		bgs->fs_wp = ntohll(recv_bgs->fs_wp);
+		bgs->fs_device_type = ntohl(recv_bgs->fs_device_type);
 		bgs->flags = ntohl(recv_bgs->flags);
 	}
 
@@ -1214,6 +1218,7 @@ int znr_net_get_blockgroups(struct znr_net_client *ncli,
 		bg->nr_sectors = ntohll(bg->nr_sectors);
 		bg->dev_zone_wp = ntohll(bg->dev_zone_wp);
 		bg->fs_wp = ntohll(bg->fs_wp);
+		bg->fs_device_type = ntohl(bg->fs_device_type);
 		bg->flags = ntohl(bg->flags);
 	}
 

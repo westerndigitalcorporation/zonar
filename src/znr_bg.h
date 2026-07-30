@@ -41,6 +41,15 @@ struct znr_blockgroup {
 	/* Zones in this block group */
 	struct blk_zone **zones;
 	unsigned long long nr_zones;
+
+	/*
+	 * Filesystem specific: This flag sets a filesystem specific device
+	 * type. To avoid address collision when comparing two blockgroups
+	 * with the same sector range, or checking if an extent resides in
+	 * a particular blockgroup, this flag can be compared against the
+	 * incoming object.
+	 */
+	unsigned int fs_device_type;
 };
 
 #define ZNR_BG_SHARED_FLAGS ((1U << 24) - 1)
