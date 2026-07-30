@@ -119,6 +119,7 @@ static int znr_net_send_req(struct znr_net_client *ncli,
 		ext_rep = params;
 		req.params.ext.sector = ntohll(ext_rep->sector);
 		req.params.ext.nr_sectors = ntohll(ext_rep->nr_sectors);
+		req.params.ext.flags = ntohl(ext_rep->flags);
 		break;
 	default:
 		znr_err("Invalid request ID\n");
@@ -165,6 +166,8 @@ static int znr_net_recv_req(struct znr_net_client *ncli,
 	case ZNR_NET_EXTENTS_IN_RANGE:
 		req->params.ext.sector = ntohll(req->params.ext.sector);
 		req->params.ext.nr_sectors = ntohll(req->params.ext.nr_sectors);
+		req->params.ext.flags =
+			ntohl(req->params.ext.flags);
 		return 0;
 	default:
 		znr_err("Invalid request ID\n");
@@ -391,6 +394,7 @@ static int znr_net_send_file_extents_rep(struct znr_net_client *ncli,
 			ext->sector = htonll(ext->sector);
 			ext->nr_sectors = htonll(ext->nr_sectors);
 			ext->ino = htonll(ext->ino);
+			ext->flags = htonl(ext->flags);
 		}
 
 		data_size = nr_extents * sizeof(struct znr_extent);
@@ -532,8 +536,9 @@ static int znr_net_send_extents_in_range_rep(struct znr_net_client *ncli,
 		    req->params.ext.sector, req->params.ext.nr_sectors);
 
 	ret = znr_fs_get_extents_in_range(req->params.ext.sector,
-					  req->params.ext.nr_sectors, &extents,
-					  &nr_extents);
+					  req->params.ext.nr_sectors,
+					  req->params.ext.flags,
+					  &extents, &nr_extents);
 	if (ret < 0) {
 		znr_err("Extents in range %llu + %llu failed\n",
 			req->params.ext.sector, req->params.ext.nr_sectors);
@@ -548,6 +553,7 @@ static int znr_net_send_extents_in_range_rep(struct znr_net_client *ncli,
 			ext->sector = htonll(ext->sector);
 			ext->nr_sectors = htonll(ext->nr_sectors);
 			ext->ino = htonll(ext->ino);
+			ext->flags = htonl(ext->flags);
 		}
 
 		data_size = nr_extents * sizeof(struct znr_extent);
@@ -1027,6 +1033,7 @@ int znr_net_get_file_extents(struct znr_net_client *ncli, char *path,
 		ext->sector = ntohll(ext->sector);
 		ext->nr_sectors = ntohll(ext->nr_sectors);
 		ext->ino = ntohll(ext->ino);
+		ext->flags = ntohl(ext->flags);
 	}
 
 	return ret;
@@ -1035,6 +1042,7 @@ int znr_net_get_file_extents(struct znr_net_client *ncli, char *path,
 int znr_net_get_extents_in_range(struct znr_net_client *ncli,
 				 unsigned long long sector,
 				 unsigned long long nr_sectors,
+				 unsigned int flags,
 				 struct znr_extent **extents,
 				 unsigned int *nr_extents)
 {
@@ -1059,6 +1067,7 @@ int znr_net_get_extents_in_range(struct znr_net_client *ncli,
 
 	params.sector = sector;
 	params.nr_sectors = nr_sectors;
+	params.flags = flags;
 	ret = znr_net_send_req(ncli, ZNR_NET_EXTENTS_IN_RANGE, &params);
 	if (ret)
 		return ret;
@@ -1092,6 +1101,7 @@ int znr_net_get_extents_in_range(struct znr_net_client *ncli,
 		ext->sector = ntohll(ext->sector);
 		ext->nr_sectors = ntohll(ext->nr_sectors);
 		ext->ino = ntohll(ext->ino);
+		ext->flags = ntohl(ext->flags);
 	}
 
 	return ret;

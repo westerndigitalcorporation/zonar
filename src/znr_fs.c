@@ -321,14 +321,17 @@ int znr_fs_get_file_extents_by_ino(unsigned long long ino,
 
 int znr_fs_get_extents_in_range(unsigned long long sector,
 				unsigned long long nr_sectors,
+				unsigned int flags,
 				struct znr_extent **ext, unsigned int *nr_ext)
 {
 	if (znr.is_net_client)
 		return znr_net_get_extents_in_range(&znr.ncli, sector,
-						    nr_sectors, ext, nr_ext);
+						    nr_sectors, flags,
+						    ext, nr_ext);
 
 	return znr.mnt_dir.f.fs->ops->get_extents_in_range(sector, nr_sectors,
-							 ext, nr_ext);
+							 flags, ext,
+							 nr_ext);
 }
 
 int znr_fs_report_blockgroups(struct znr_blockgroup *bgs,
