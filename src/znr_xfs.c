@@ -661,6 +661,7 @@ static int znr_xfs_get_blockgroups(struct znr_blockgroup **bgs_out,
 	for (ag = 0; ag < agcount && idx < max_bgs; ag++, idx++) {
 		bgs[idx].sector = ag * bbperag;
 		bgs[idx].nr_sectors = bbperag;
+		bgs[idx].fs_device_type = XFS_MAIN_DEV;
 	}
 
 	/* Not a zoned device */
@@ -671,6 +672,7 @@ static int znr_xfs_get_blockgroups(struct znr_blockgroup **bgs_out,
 	for (rg = 0; rg < rgcount && idx < max_bgs; rg++, idx++) {
 		bgs[idx].sector = rtstart + (rg * bbperrg);
 		bgs[idx].nr_sectors = bbperrg;
+		bgs[idx].fs_device_type = XFS_RT_DEV;
 
 		/*
 		 * This will silently fail on older kernels with no support,

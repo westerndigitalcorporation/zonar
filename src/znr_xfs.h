@@ -17,4 +17,9 @@ struct znr_fs_xfs {
 	dev_t				rt_dev;
 };
 
+enum xfs_device_type {
+	XFS_MAIN_DEV	= 1,
+	XFS_RT_DEV	= 2,
+};
+
 #endif /* ZNR_XFS_H */
