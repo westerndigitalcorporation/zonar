@@ -377,6 +377,7 @@ out:
 
 static int znr_xfs_get_range_extents(unsigned long long sector,
 				     unsigned long long nr_sectors,
+				     unsigned int flags,
 				     struct znr_extent **extents,
 				     unsigned int *nr_extents)
 {

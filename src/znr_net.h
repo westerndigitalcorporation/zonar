@@ -92,6 +92,7 @@ struct znr_net_fs_blockgroup_report {
 struct znr_net_fs_extent_report {
 	__u64		sector;
 	__u64		nr_sectors;
+	__u32		flags;
 } __attribute__ ((packed));
 
 struct znr_net_fs_path {
@@ -133,6 +134,7 @@ int znr_net_get_file_extents(struct znr_net_client *ncli, char *path,
 int znr_net_get_extents_in_range(struct znr_net_client *ncli,
 				 unsigned long long sector,
 				 unsigned long long nr_sectors,
+				 unsigned int flags,
 				 struct znr_extent **extents,
 				 unsigned int *nr_extents);
 int znr_net_get_blockgroups(struct znr_net_client *ncli,

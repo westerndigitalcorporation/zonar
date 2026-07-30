@@ -947,7 +947,8 @@ static void znr_gui_click_bg_cb(GtkGestureClick *self, gint n_press,
 	/* Get all extents in the clicked blockgroup */
 	bg = gui_bg->bg;
 	ret = znr_fs_get_extents_in_range(bg->sector, bg->nr_sectors,
-					  &extents, &nr_extents);
+					  bg->fs_device_type, &extents,
+					  &nr_extents);
 	if (ret) {
 		znr_gui_err("Failed to get blockgroup extents\n", NULL);
 		return;

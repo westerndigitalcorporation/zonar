@@ -53,6 +53,7 @@ struct znr_extent {
 	unsigned long long	ino;
 	unsigned long long	sector;
 	unsigned long long	nr_sectors;
+	unsigned int		flags;
 	char			info[ZNR_FS_EXT_INFO_SIZE];
 } __attribute__ ((packed));
 
@@ -97,6 +98,7 @@ struct znr_fs_ops {
 				unsigned int *nr_extents);
 	int (*get_extents_in_range)(unsigned long long sector,
 				    unsigned long long nr_sectors,
+				    unsigned int flags,
 				    struct znr_extent **extents,
 				    unsigned int *nr_extents);
 	int (*get_blockgroups)(struct znr_blockgroup **bgs,
@@ -131,6 +133,7 @@ void znr_fs_free_file(struct znr_fs_file *f);
 
 int znr_fs_get_extents_in_range(unsigned long long sector,
 				unsigned long long nr_sectors,
+				unsigned int flags,
 				struct znr_extent **ext, unsigned int *nr_ext);
 int znr_fs_get_blockgroups(struct znr_blockgroup **bgs,
 			   unsigned int *nr_bgs);
