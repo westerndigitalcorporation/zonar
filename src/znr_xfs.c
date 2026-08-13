@@ -457,12 +457,12 @@ out:
 
 static int znr_xfs_get_nr_blockgroups(unsigned int *nr_bgs)
 {
-	unsigned long num_bgs;
+	unsigned long long num_bgs;
 
 	if (!fs_geo.blocksize)
 		return -ENODEV;
 
-	num_bgs = (unsigned long)fs_geo.agcount + fs_geo.rgcount;
+	num_bgs = (unsigned long long)fs_geo.agcount + fs_geo.rgcount;
 	if (num_bgs > UINT_MAX)
 		return -ENOSPC;
 
@@ -517,7 +517,7 @@ static int znr_xfs_get_blockgroups(struct znr_blockgroup **bgs_out,
 {
 	struct znr_blockgroup *bgs = NULL;
 	unsigned int max_bgs = 0;
-	unsigned long rtstart, bbperag, bbperrg, rgcount, agcount;
+	unsigned long long rtstart, bbperag, bbperrg, rgcount, agcount;
 	unsigned int ag, rg, idx = 0;
 	int ret;
 
@@ -574,7 +574,7 @@ out:
 static int znr_xfs_report_blockgroups(struct znr_blockgroup *bgs,
 				      unsigned int bg_no, unsigned int nr_bgs)
 {
-	unsigned long rtstart, bbperrg;
+	unsigned long long rtstart, bbperrg;
 	unsigned int max_bgs = 0;
 	unsigned int rgno, i = 0;
 	int ret;

@@ -10,22 +10,22 @@
  */
 struct znr_blockgroup {
         /* Starting sector */
-	unsigned long sector;
+	unsigned long long sector;
 
 	/* Number of sectors */
-	unsigned long nr_sectors;
+	unsigned long long nr_sectors;
 
 	/*
 	 * The device indicated write pointer sector offset within this
 	 * blockgroup. Valid if ZNR_BG_HAS_DEV_ZONE_WP is set in flags.
 	 */
-	unsigned long dev_zone_wp;
+	unsigned long long dev_zone_wp;
 
 	/*
 	 * The current write pointer offset within this blockgroup used by the
 	 * FS to issue writes. Valif if ZNR_BG_HAS_FS_WP is set in flags.
 	 */
-	unsigned long fs_wp;
+	unsigned long long fs_wp;
 
 	/* Is true if the backing zones has been mapped to this blockgroup */
 	bool has_zone_mapping;
@@ -40,7 +40,7 @@ struct znr_blockgroup {
 
 	/* Zones in this block group */
 	struct blk_zone **zones;
-	unsigned long nr_zones;
+	unsigned long long nr_zones;
 };
 
 #define ZNR_BG_SHARED_FLAGS ((1U << 24) - 1)
