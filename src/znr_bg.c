@@ -51,7 +51,7 @@ static int znr_bg_get_zone_mapping(struct znr_blockgroup *bg,
 				   unsigned int nr_zones,
 				   unsigned int zone_sectors)
 {
-	unsigned long bg_end;
+	unsigned long long bg_end;
 	unsigned int j, max_zones_per_bg, bg_zone_idx = 0;
 	unsigned int start_zno, end_zno;
 
@@ -120,7 +120,7 @@ static int znr_bg_get_zone_info(struct znr_blockgroup *bgs,
 	if (nr_zones > znr.nr_zones)
 		return -EINVAL;
 
-	znr_verbose("Getting zone info for %u blockgroup starting at sector: 0x%lx\n",
+	znr_verbose("Getting zone info for %u blockgroup starting at sector: 0x%llx\n",
 		    nr_bgs, bgs[0].sector);
 
 	for (i = 0; i < nr_bgs; i++) {
@@ -183,7 +183,7 @@ static int znr_bg_report(struct znr_device *dev, struct blk_zone *zones,
 			 unsigned int nr_bgs)
 {
 	unsigned int last_zone_no, start_zone_no = 0, nr_zones = 0;
-	unsigned long max_sector;
+	unsigned long long max_sector;
 	int ret;
 
 	if (!bgs || !nr_bgs || bg_no + nr_bgs > znr.nr_bgs)
@@ -201,7 +201,7 @@ static int znr_bg_report(struct znr_device *dev, struct blk_zone *zones,
 		max_sector = bgs[nr_bgs - 1].sector +
 			bgs[nr_bgs - 1].nr_sectors;
 		if (max_sector > dev->nr_sectors) {
-			fprintf(stderr, "Sector out of bounds: sector: %ld | max: %lld\n",
+			fprintf(stderr, "Sector out of bounds: sector: %lld | max: %lld\n",
 				max_sector, dev->nr_sectors);
 			return -EINVAL;
 		}

@@ -399,7 +399,7 @@ static void znr_gui_draw_bg_written(struct znr_blockgroup *bg,
 {
 	long long x;
 	bool bg_full;
-	unsigned long wp, wp_delta;
+	unsigned long long wp, wp_delta;
 
 	if (!znr_bg_has_wp(bg))
 		return;
@@ -602,7 +602,7 @@ static void znr_gui_bg_draw_cb(GtkDrawingArea *drawing_area,
 {
 	struct znr_gui_blockgroup *gui_bg = user_data;
 	struct znr_blockgroup *bg = gui_bg->bg;
-	unsigned long wp_sector;
+	unsigned long long wp_sector;
 	unsigned int percent = 100;
 	bool bg_full;
 	char info[256];
@@ -666,14 +666,14 @@ static void znr_gui_bg_draw_cb(GtkDrawingArea *drawing_area,
 			}
 
 			if (!bg_full) {
-				snprintf(wp, sizeof(wp), "0x%lx", wp_sector);
+				snprintf(wp, sizeof(wp), "0x%llx", wp_sector);
 				percent = wp_sector * 100 / bg->nr_sectors;
 			}
 			snprintf(usage, sizeof(usage), "%u%%", percent);
 		}
 
 		snprintf(info, sizeof(info),
-			 "Blockgroup [%u]: %s • Start: 0x%lx Size: 0x%lx sectors • WP: %s • Usage: %s",
+			 "Blockgroup [%u]: %s • Start: 0x%llx Size: 0x%llx sectors • WP: %s • Usage: %s",
 			 gui_bg->bg_no, type, bg->sector, bg->nr_sectors,
 			 wp, usage);
 		gtk_editable_set_text(GTK_EDITABLE(znrg.bg_status), info);
@@ -921,7 +921,7 @@ static void znr_gui_click_bg_cb(GtkGestureClick *self, gint n_press,
 	char *extents_info = NULL;
 	char info[256];
 	char tab_label[32], *bg_info;
-	unsigned long wp;
+	unsigned long long wp;
 	bool bg_full;
 	int ret;
 
@@ -977,15 +977,15 @@ static void znr_gui_click_bg_cb(GtkGestureClick *self, gint n_press,
 		if (bg_full)
 			snprintf(wp_str, sizeof(wp_str), "N/A (Blockgroup full)");
 		else
-			snprintf(wp_str, sizeof(wp_str), "%lu", wp);
+			snprintf(wp_str, sizeof(wp_str), "%llu", wp);
 	}
 
 	if (bg->nr_zones)
-		snprintf(nr_zones_str, sizeof(nr_zones_str), "%lu",
+		snprintf(nr_zones_str, sizeof(nr_zones_str), "%llu",
 			 bg->nr_zones);
 
 	snprintf(info, sizeof(info),
-		 "<b>Blockgroup %u</b>\nSector: 0x%lx\nSize: 0x%lx sectors\n"
+		 "<b>Blockgroup %u</b>\nSector: 0x%llx\nSize: 0x%llx sectors\n"
 		 "WP: %s\nNumber of backing zones: %s\n",
 		 gui_bg->bg_no, bg->sector, bg->nr_sectors, wp_str,
 		 nr_zones_str);
@@ -1280,7 +1280,7 @@ static void znr_gui_show_bg_cb(GtkWidget *button __attribute__((unused)),
 	errno = 0;
 	bg_no = strtol(text, &endptr, 10);
 	if (errno == ERANGE || endptr == text || *endptr != '\0' ||
-	    bg_no < 0 || (unsigned long)bg_no >= znr.nr_bgs) {
+	    bg_no < 0 || (unsigned long long)bg_no >= znr.nr_bgs) {
 		znr_gui_err("Invalid blockgroup number",
 			    "Blockgroup: %s", text);
 		gtk_editable_set_text(GTK_EDITABLE(znrg.show_bg_entry),
