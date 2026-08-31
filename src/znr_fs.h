@@ -114,6 +114,23 @@ static inline int znr_openat2(int dirfd, const char *pathname,
 	return syscall(SYS_openat2, dirfd, pathname, how, size);
 }
 
+static inline bool znr_fs_ext_in_bg(struct znr_extent *ext,
+				    struct znr_blockgroup *bg)
+{
+	/*
+	 * This can be extended later as required, but we don't want to make
+	 * calls to the filesystem for this assertion because it adds
+	 * significant overhead to the GUIs responsiveness when extents are
+	 * rendered. Particularly when connected to remote server over
+	 * network.
+	 */
+	if (ext->flags != bg->fs_device_type)
+		return false;
+
+	return ext->sector >= bg->sector &&
+	       ext->sector + ext->nr_sectors <= bg->sector + bg->nr_sectors;
+}
+
 /* XFS functions (znr_xfs.c) */
 extern const struct znr_fs_ops znr_xfs_ops;
 
