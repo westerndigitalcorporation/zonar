@@ -16,6 +16,7 @@
 #include <linux/fs.h>
 #include <fcntl.h>
 #include <linux/openat2.h>
+#include <mntent.h>
 #include <sys/syscall.h>
 
 enum znr_supported_fs {
@@ -59,6 +60,8 @@ struct znr_fs_file {
 	char			*path;
 	char			*relative_path;
 	struct znr_fs		*fs;
+	/* Valid if this is this file refers to the  mount directory */
+	struct mntent		*mnt;
 	unsigned long long	ino;
 	off_t			size;
 	mode_t			mode;

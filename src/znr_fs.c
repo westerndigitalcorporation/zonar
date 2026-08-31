@@ -201,6 +201,50 @@ static struct znr_fs_file *znr_fs_alloc_file(const char *path)
 	return f;
 }
 
+int mntent_copy(struct mntent **dst, const struct mntent *src)
+{
+	struct mntent *copy;
+
+	if (!dst || !src)
+		return -1;
+
+	copy = malloc(sizeof(*copy));
+	if (!copy)
+		return -1;
+
+	copy->mnt_fsname = strdup(src->mnt_fsname);
+	copy->mnt_dir    = strdup(src->mnt_dir);
+	copy->mnt_type   = strdup(src->mnt_type);
+	copy->mnt_opts   = strdup(src->mnt_opts);
+	copy->mnt_freq   = src->mnt_freq;
+	copy->mnt_passno = src->mnt_passno;
+
+	if (!copy->mnt_fsname || !copy->mnt_dir ||
+	    !copy->mnt_type || !copy->mnt_opts) {
+		free(copy->mnt_fsname);
+		free(copy->mnt_dir);
+		free(copy->mnt_type);
+		free(copy->mnt_opts);
+		free(copy);
+		return -1;
+	}
+
+	*dst = copy;
+	return 0;
+}
+
+void mntent_free(struct mntent *ent)
+{
+	if (!ent)
+		return;
+
+	free(ent->mnt_fsname);
+	free(ent->mnt_dir);
+	free(ent->mnt_type);
+	free(ent->mnt_opts);
+	free(ent);
+}
+
 static void znr_fs_clear_file(struct znr_fs_file *f)
 {
 	znr_fs_close_file(f);
@@ -212,6 +256,10 @@ static void znr_fs_clear_file(struct znr_fs_file *f)
 	f->ino = 0;
 	f->size = 0;
 	f->mode = 0;
+
+	if (f->mnt)
+		mntent_free(f->mnt);
+	f->mnt = NULL;
 }
 
 void znr_fs_free_file(struct znr_fs_file *f)
@@ -377,6 +425,10 @@ int znr_fs_open(const char *path)
 		goto cleanup;
 
 	ret = znr_fs_get_file_fs(&znr.mnt_dir);
+	if (ret)
+		goto cleanup;
+
+	ret = mntent_copy(&znr.mnt_dir.mnt, mnt);
 	if (ret)
 		goto cleanup;
 
