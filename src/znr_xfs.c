@@ -156,7 +156,7 @@ static int znr_xfs_init_fs(struct znr_fs_file *f)
 
 static int znr_xfs_destroy_fs(void)
 {
-	struct znr_fs_xfs *xfs = znr_to_xfs_fs(&znr);
+	struct znr_fs_xfs *xfs = znr_xfs(&znr);
 
 	if (xfs->rt_path)
 		free(xfs->rt_path);
@@ -251,11 +251,13 @@ again:
  * Fill an extent information using data from GETBMAPX.
  */
 static void znr_xfs_get_file_extent_from_map(struct znr_extent *extent,
-					struct getbmapx *bmap, unsigned int idx,
-					int is_rt, off_t bstart, off_t bbperag)
+					     struct getbmapx *bmap,
+					     unsigned int idx,
+					     enum xfs_extent_type type,
+					     off_t bstart, off_t bbperag)
 {
 	unsigned long long offset_start, offset_end;
-	const char *ag_rg = is_rt ? "RG" : "AG";
+	const char *ag_rg;
 	off_t bno;
 
 	/* Calculate RG information once for this extent */
@@ -273,6 +275,15 @@ static void znr_xfs_get_file_extent_from_map(struct znr_extent *extent,
 	extent->idx = idx;
 	extent->sector = bmap->bmv_block;
 	extent->nr_sectors = bmap->bmv_length;
+
+	extent->flags = type;
+	if (type == XFS_AG_EXTENT)
+		ag_rg = "AG";
+	else if (type == XFS_RG_EXTENT)
+		ag_rg = "RG";
+	else
+		fprintf(stderr, "Unknown extent type\n");
+
 	snprintf(extent->info, sizeof(extent->info) - 1,
 		 "<tt><b>-- Extent %u --</b>\n"
 		 "  <b>File Offset</b>:  [%llu..%llu]\n"
@@ -303,9 +314,9 @@ static int znr_xfs_get_file_extents(struct znr_fs_file *f,
 	unsigned int bmv_entries;
 	struct znr_extent *ext = NULL;
 	struct znr_fs_xfs *xfs = znr_xfs(&znr);
+	enum xfs_extent_type type;
 	off_t bstart = 0;
 	off_t bbperag = 0;
-	int is_rt = 0;
 	int i, ret;
 
 	/* Get file attributes to check if realtime */
@@ -339,10 +350,11 @@ static int znr_xfs_get_file_extents(struct znr_fs_file *f,
 
 	/* Setup extent array */
 	if (fsx.fsx_xflags & FS_XFLAG_REALTIME) {
-		is_rt = 1;
+		type = XFS_RG_EXTENT;
 		bstart = xfs->geo.rtstart * (xfs->geo.blocksize / BBSIZE);
 		bbperag = bytes_per_rtgroup(&xfs->geo) / BBSIZE;
 	} else {
+		type = XFS_AG_EXTENT;
 		bstart = 0;
 		bbperag = (off_t)xfs->geo.agblocks *
 			(off_t)xfs->geo.blocksize / BBSIZE;
@@ -355,7 +367,7 @@ static int znr_xfs_get_file_extents(struct znr_fs_file *f,
 
 		ext[ext_idx].ino = f->ino;
 		znr_xfs_get_file_extent_from_map(&ext[ext_idx],
-						 &map[i + 1], ext_idx, is_rt,
+						 &map[i + 1], ext_idx, type,
 						 bstart, bbperag);
 		ext_idx++;
 	}
@@ -419,15 +431,13 @@ static int znr_xfs_get_range_extents(unsigned long long sector,
 	h->fmr_offset = ULLONG_MAX;
 	h->fmr_device = UINT_MAX;
 
-	/* Determine device type from filesystem geometry */
-	if (xfs->geo.flags & XFS_FSOP_GEOM_FLAGS_ZONED) {
-		if (sector > xfs->geo.rtstart * (xfs->geo.blocksize / BBSIZE)) {
-			l->fmr_device = XFS_DEV_RT;
-			h->fmr_device = XFS_DEV_RT;
-		} else {
-			l->fmr_device = XFS_DEV_DATA;
-			h->fmr_device = XFS_DEV_DATA;
-		}
+	/* Search the respective device */
+	if (flags == XFS_RG_EXTENT) {
+		h->fmr_device = xfs->rt_dev;
+		l->fmr_device = xfs->rt_dev;
+	} else {
+		h->fmr_device = xfs->data_dev;
+		l->fmr_device = xfs->data_dev;
 	}
 
 	/*
@@ -527,6 +537,11 @@ static int znr_xfs_get_range_extents(unsigned long long sector,
 			ext->ino = p->fmr_owner;
 			ext->sector = BTOBBT(p->fmr_physical);
 			ext->nr_sectors = BTOBBT(p->fmr_length);
+			/*
+			 * We found the respective extents, their type is
+			 * the same as the searched type
+			 */
+			ext->flags = flags;
 
 			snprintf(ext->info, sizeof(ext->info) - 1,
 				 "<tt><b>-- Extent %u --</b>\n"
