@@ -31,7 +31,7 @@ struct znr {
 	/*
 	 * Mount directory & file system.
 	 */
-	struct znr_fs_file	mnt_dir;
+	struct znr_mnt_dir	mnt_dir;
 
 	/*
 	 * Device information.

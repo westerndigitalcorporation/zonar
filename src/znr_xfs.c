@@ -13,16 +13,84 @@
 #include <linux/fs.h>
 #include <sys/stat.h>
 #include <stdint.h>
+#include <linux/fsmap.h>
 
 #include "znr.h"
 
-#include <linux/fsmap.h>
-#include <xfs/xfs.h>
+static inline struct znr_fs_xfs *znr_xfs(struct znr *z)
+{
+	return &z->mnt_dir.fs.xfs;
+}
 
 /*
- * Get FS geometry.
+ * For the given path, try to get the device ID of the backing
+ * device.
  */
-static struct xfs_fsop_geom		fs_geo;
+static int znr_xfs_device_number(char *path, dev_t *devnum)
+{
+	struct stat sbuf;
+
+	if (stat(path, &sbuf) < 0)
+		return errno;
+
+	/*
+	 * We want to match st_rdev if the path provided is a device
+	 * special file.  Otherwise we are looking for the device id for
+	 * the containing filesystem, in st_dev.
+	 */
+	if (S_ISBLK(sbuf.st_mode))
+		*devnum = sbuf.st_rdev;
+	else
+		*devnum = sbuf.st_dev;
+
+	return 0;
+}
+
+/*
+ * Determines if the "rtdev" mount options are present for the given
+ * mount point. If so, the value (a device path) is captured.
+ * Note that the path buffer is heap allocated and it is the caller's
+ * responsibility to free them.
+ */
+static int znr_xfs_get_mnt_ops(struct mntent *mnt, struct znr_fs_xfs *fs)
+{
+	int ret;
+	char *fsrt;
+
+	if (!fs)
+		return -EINVAL;
+
+	if (fs->rt_path || fs->data_path) {
+		fprintf(stderr, "xfs device paths already exist!\n");
+		return -EINVAL;
+	}
+
+	ret = asprintf(&fs->data_path, "%s", mnt->mnt_fsname);
+	if (ret < 0)
+		return ret;
+
+	/*
+	 * Extract realtime device from mount options.
+	 *
+	 * Note: the glibc hasmntopt implementation requires that the
+	 * character in mnt_opts immediately after the search string
+	 * must be a NULL ('\0'), a comma (','), or an equals ('=').
+	 * Therefore we cannot search for 'rtdev=' directly.
+	 */
+	fsrt = hasmntopt(mnt, "rtdev");
+	if (!fsrt || strlen(fsrt) < 6)
+		return 0;
+
+	if (fsrt[5] == '=')
+		fsrt += 6;
+
+	fsrt = strndup(fsrt, strcspn(fsrt, " ,"));
+	if (!fsrt)
+		return -ENOMEM;
+
+	fs->rt_path = fsrt;
+	return 0;
+}
 
 /*
  * Return the number of bytes in an rtgroup.
@@ -38,17 +106,51 @@ static inline uint64_t bytes_per_rtgroup(const struct xfs_fsop_geom *fsgeo)
 
 static int znr_xfs_init_fs(struct znr_fs_file *f)
 {
+	struct znr_fs_xfs *xfs = znr_xfs(&znr);
+	dev_t devnum = 0;
 	int ret;
 
-	memset(&fs_geo, 0, sizeof(fs_geo));
+	if (!f->mnt) {
+		fprintf(stderr, "Missing mount information\n");
+		return -EINVAL;
+	}
 
-	ret = ioctl(f->fd, XFS_IOC_FSGEOMETRY, &fs_geo);
+	memset(&xfs->geo, 0, sizeof(xfs->geo));
+
+	ret = ioctl(f->fd, XFS_IOC_FSGEOMETRY, &xfs->geo);
 	if (ret == -1) {
 		fprintf(stderr, "Get XFS geometry failed (%s)\n",
 			strerror(errno));
 		return -errno;
 	}
 
+	ret = znr_xfs_get_mnt_ops(f->mnt, xfs);
+	if (ret)
+		return ret;
+
+	/*
+	 * File systems with internal rt device use synthetic device values.
+	 */
+	if (xfs->geo.rtstart) {
+		xfs->data_dev = XFS_DEV_DATA;
+		xfs->rt_dev = XFS_DEV_RT;
+		return 0;
+	}
+
+	/* Main device, lookup by mount directory */
+	ret = znr_xfs_device_number(f->path, &devnum);
+	if (ret)
+		return ret;
+	xfs->data_dev = devnum;
+
+	/* RT device (if any) */
+	if (xfs->rt_path) {
+		devnum = 0;
+		ret = znr_xfs_device_number(xfs->rt_path, &devnum);
+		if (ret)
+			return ret;
+		xfs->rt_dev = devnum;
+	}
 	return 0;
 }
 
@@ -187,6 +289,7 @@ static int znr_xfs_get_file_extents(struct znr_fs_file *f,
 	unsigned int ext_idx = 0, nr_ext = 0;
 	unsigned int bmv_entries;
 	struct znr_extent *ext = NULL;
+	struct znr_fs_xfs *xfs = znr_xfs(&znr);
 	off_t bstart = 0;
 	off_t bbperag = 0;
 	int is_rt = 0;
@@ -224,12 +327,12 @@ static int znr_xfs_get_file_extents(struct znr_fs_file *f,
 	/* Setup extent array */
 	if (fsx.fsx_xflags & FS_XFLAG_REALTIME) {
 		is_rt = 1;
-		bstart = fs_geo.rtstart * (fs_geo.blocksize / BBSIZE);
-		bbperag = bytes_per_rtgroup(&fs_geo) / BBSIZE;
+		bstart = xfs->geo.rtstart * (xfs->geo.blocksize / BBSIZE);
+		bbperag = bytes_per_rtgroup(&xfs->geo) / BBSIZE;
 	} else {
 		bstart = 0;
-		bbperag = (off_t)fs_geo.agblocks *
-			(off_t)fs_geo.blocksize / BBSIZE;
+		bbperag = (off_t)xfs->geo.agblocks *
+			(off_t)xfs->geo.blocksize / BBSIZE;
 	}
 
 	for (i = 0; i < map[0].bmv_entries && ext_idx < nr_ext; i++) {
@@ -273,10 +376,11 @@ static int znr_xfs_get_range_extents(unsigned long long sector,
 	unsigned int i, max_extents, nr_ext = 0;
 	unsigned long long sector_end = sector + nr_sectors;
 	struct znr_extent *ext, *ext_base = NULL;
+	struct znr_fs_xfs *xfs = znr_xfs(&znr);
 	char *ag_rg;
 
-	bperag = (off_t)fs_geo.agblocks * (off_t)fs_geo.blocksize;
-	bperrtg = bytes_per_rtgroup(&fs_geo);
+	bperag = (off_t)xfs->geo.agblocks * (off_t)xfs->geo.blocksize;
+	bperrtg = bytes_per_rtgroup(&xfs->geo);
 
 	head = malloc(fsmap_sizeof(map_size));
 	if (!head) {
@@ -302,8 +406,8 @@ static int znr_xfs_get_range_extents(unsigned long long sector,
 	h->fmr_device = UINT_MAX;
 
 	/* Determine device type from filesystem geometry */
-	if (fs_geo.flags & XFS_FSOP_GEOM_FLAGS_ZONED) {
-		if (sector > fs_geo.rtstart * (fs_geo.blocksize / BBSIZE)) {
+	if (xfs->geo.flags & XFS_FSOP_GEOM_FLAGS_ZONED) {
+		if (sector > xfs->geo.rtstart * (xfs->geo.blocksize / BBSIZE)) {
 			l->fmr_device = XFS_DEV_RT;
 			h->fmr_device = XFS_DEV_RT;
 		} else {
@@ -316,7 +420,7 @@ static int znr_xfs_get_range_extents(unsigned long long sector,
 	 * Allocate our array of extents, up to the maximum we can have in a
 	 * zone (zone size / FS block size).
 	 */
-	max_extents = nr_sectors * 512 / fs_geo.blocksize;
+	max_extents = nr_sectors * 512 / xfs->geo.blocksize;
 	ext = calloc(max_extents, sizeof(struct znr_extent));
 	if (!ext) {
 		fprintf(stderr, "No memory for extents\n");
@@ -329,7 +433,7 @@ static int znr_xfs_get_range_extents(unsigned long long sector,
 	head->fmh_count = 0;
 
 	while (1) {
-		ret = ioctl(znr.mnt_dir.fd, FS_IOC_GETFSMAP, head);
+		ret = ioctl(znr.mnt_dir.f.fd, FS_IOC_GETFSMAP, head);
 		if (ret < 0) {
 			fprintf(stderr, "Failed to get FSMAP: (%d) - [%d] %s",
 				ret, errno, strerror(errno));
@@ -388,7 +492,7 @@ static int znr_xfs_get_range_extents(unsigned long long sector,
 
 			} else {
 				start = p->fmr_physical -
-					fs_geo.rtstart * fs_geo.blocksize;
+					xfs->geo.rtstart * xfs->geo.blocksize;
 				agno = start / bperrtg;
 				if (agno < 0)
 					agno = -1;
@@ -457,12 +561,13 @@ out:
 
 static int znr_xfs_get_nr_blockgroups(unsigned int *nr_bgs)
 {
+	struct znr_fs_xfs *xfs = znr_xfs(&znr);
 	unsigned long long num_bgs;
 
-	if (!fs_geo.blocksize)
+	if (!xfs->geo.blocksize)
 		return -ENODEV;
 
-	num_bgs = (unsigned long long)fs_geo.agcount + fs_geo.rgcount;
+	num_bgs = (unsigned long long)xfs->geo.agcount + xfs->geo.rgcount;
 	if (num_bgs > UINT_MAX)
 		return -ENOSPC;
 
@@ -475,6 +580,7 @@ static int znr_xfs_get_rg_fs_write_pointer(unsigned int rgno,
 					   struct znr_blockgroup *bg)
 {
 	struct xfs_rtgroup_geometry *rt_geom;
+	struct znr_fs_xfs *xfs = znr_xfs(&znr);
 	int ret;
 
 	rt_geom = calloc(1, sizeof(struct xfs_rtgroup_geometry));
@@ -485,7 +591,7 @@ static int znr_xfs_get_rg_fs_write_pointer(unsigned int rgno,
 
 	memset(rt_geom, 0, sizeof(struct xfs_rtgroup_geometry));
 	rt_geom->rg_number = rgno;
-	ret = ioctl(znr.mnt_dir.fd, XFS_IOC_RTGROUP_GEOMETRY, rt_geom);
+	ret = ioctl(znr.mnt_dir.f.fd, XFS_IOC_RTGROUP_GEOMETRY, rt_geom);
 	if (ret < 0 || !(rt_geom->rg_flags & XFS_RTGROUP_GEOM_WRITEPOINTER)) {
 		ret = -1;
 		goto out;
@@ -493,7 +599,7 @@ static int znr_xfs_get_rg_fs_write_pointer(unsigned int rgno,
 
 	/* convert rg_writepointer to basic blocks. */
 	bg->fs_wp =
-		rt_geom->rg_writepointer * (off_t)fs_geo.blocksize / BBSIZE;
+		rt_geom->rg_writepointer * (off_t)xfs->geo.blocksize / BBSIZE;
 	bg->flags |= ZNR_BG_HAS_FS_WP;
 
 out:
@@ -516,6 +622,7 @@ static int znr_xfs_get_blockgroups(struct znr_blockgroup **bgs_out,
 				   unsigned int *nr_bgs)
 {
 	struct znr_blockgroup *bgs = NULL;
+	struct znr_fs_xfs *xfs = znr_xfs(&znr);
 	unsigned int max_bgs = 0;
 	unsigned long long rtstart, bbperag, bbperrg, rgcount, agcount;
 	unsigned int ag, rg, idx = 0;
@@ -532,10 +639,10 @@ static int znr_xfs_get_blockgroups(struct znr_blockgroup **bgs_out,
 	if (!bgs)
 		return -ENOMEM;
 
-	bbperrg = bytes_per_rtgroup(&fs_geo) / BBSIZE;
-	bbperag = (off_t)fs_geo.agblocks * (off_t)fs_geo.blocksize / BBSIZE;
-	rgcount = fs_geo.rgcount;
-	agcount = fs_geo.agcount;
+	bbperrg = bytes_per_rtgroup(&xfs->geo) / BBSIZE;
+	bbperag = (off_t)xfs->geo.agblocks * (off_t)xfs->geo.blocksize / BBSIZE;
+	rgcount = xfs->geo.rgcount;
+	agcount = xfs->geo.agcount;
 
 	/* Into blockgroups, contiguously append all AGs and RGs. */
 	for (ag = 0; ag < agcount && idx < max_bgs; ag++, idx++) {
@@ -544,10 +651,10 @@ static int znr_xfs_get_blockgroups(struct znr_blockgroup **bgs_out,
 	}
 
 	/* Not a zoned device */
-	if (!(fs_geo.flags & XFS_FSOP_GEOM_FLAGS_ZONED))
+	if (!(xfs->geo.flags & XFS_FSOP_GEOM_FLAGS_ZONED))
 		goto out;
 
-	rtstart = (off_t)fs_geo.rtstart * (off_t)fs_geo.blocksize / BBSIZE;
+	rtstart = (off_t)xfs->geo.rtstart * (off_t)xfs->geo.blocksize / BBSIZE;
 	for (rg = 0; rg < rgcount && idx < max_bgs; rg++, idx++) {
 		bgs[idx].sector = rtstart + (rg * bbperrg);
 		bgs[idx].nr_sectors = bbperrg;
@@ -574,6 +681,7 @@ out:
 static int znr_xfs_report_blockgroups(struct znr_blockgroup *bgs,
 				      unsigned int bg_no, unsigned int nr_bgs)
 {
+	struct znr_fs_xfs *xfs = znr_xfs(&znr);
 	unsigned long long rtstart, bbperrg;
 	unsigned int max_bgs = 0;
 	unsigned int rgno, i = 0;
@@ -583,7 +691,7 @@ static int znr_xfs_report_blockgroups(struct znr_blockgroup *bgs,
 	 * A blockgroup report currently only updates the write pointer
 	 * location. If this is not zoned XFS, then there's nothing to report.
 	 */
-	if (!(fs_geo.flags & XFS_FSOP_GEOM_FLAGS_ZONED))
+	if (!(xfs->geo.flags & XFS_FSOP_GEOM_FLAGS_ZONED))
 		return nr_bgs;
 
 	ret = znr_xfs_get_nr_blockgroups(&max_bgs);
@@ -596,16 +704,16 @@ static int znr_xfs_report_blockgroups(struct znr_blockgroup *bgs,
 	if (!bgs)
 		return -EINVAL;
 
-	bbperrg = bytes_per_rtgroup(&fs_geo) / BBSIZE;
-	rtstart = (off_t)fs_geo.rtstart * (off_t)fs_geo.blocksize / BBSIZE;
+	bbperrg = bytes_per_rtgroup(&xfs->geo) / BBSIZE;
+	rtstart = (off_t)xfs->geo.rtstart * (off_t)xfs->geo.blocksize / BBSIZE;
 
 	/*
 	 * Skips AGs as there is nothing that need to be updated. We only
 	 * need to a do report on RGs as the RG writepointer may have
 	 * changed.
 	 */
-	if (bg_no < fs_geo.agcount)
-		i += fs_geo.agcount - bg_no;
+	if (bg_no < xfs->geo.agcount)
+		i += xfs->geo.agcount - bg_no;
 
 	for (; i < nr_bgs; i++) {
 		rgno = (bgs[i].sector - rtstart) / bbperrg;

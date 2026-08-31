@@ -94,11 +94,11 @@ static int znr_fs_open_file(struct znr_fs_file *f, bool mnt_restricted)
 
 	if (mnt_restricted) {
 		f->relative_path = f->path;
-		ret = asprintf(&f->path, "%s/%s", znr.mnt_dir.path, f->path);
+		ret = asprintf(&f->path, "%s/%s", znr.mnt_dir.f.path, f->path);
 		if (ret < 0)
 			return ret;
 
-		f->fd = znr_openat2(znr.mnt_dir.fd, f->relative_path,
+		f->fd = znr_openat2(znr.mnt_dir.f.fd, f->relative_path,
 				    &how, sizeof(how));
 		if (f->fd < 0) {
 			if (errno != ENOENT)
@@ -120,7 +120,7 @@ static int znr_fs_open_file(struct znr_fs_file *f, bool mnt_restricted)
 	if (fstat(f->fd, &st) < 0) {
 		if (mnt_restricted)
 			fprintf(stderr, "Stat file path %s/%s failed %d (%s)\n",
-				znr.mnt_dir.path, f->path,
+				znr.mnt_dir.f.path, f->path,
 				errno, strerror(errno));
 		else
 			fprintf(stderr, "Stat file path %s failed %d (%s)\n",
@@ -136,10 +136,10 @@ static int znr_fs_open_file(struct znr_fs_file *f, bool mnt_restricted)
 	if (ret)
 		goto close;
 
-	if (f->fs != znr.mnt_dir.fs) {
+	if (f->fs != znr.mnt_dir.f.fs) {
 		fprintf(stderr,
 			"File %s is not on the same file system as %s\n",
-			f->path, znr.mnt_dir.path);
+			f->path, znr.mnt_dir.f.path);
 		ret = -EINVAL;
 		goto close;
 	}
@@ -319,7 +319,7 @@ int znr_fs_get_extents_in_range(unsigned long long sector,
 		return znr_net_get_extents_in_range(&znr.ncli, sector,
 						    nr_sectors, ext, nr_ext);
 
-	return znr.mnt_dir.fs->ops->get_extents_in_range(sector, nr_sectors,
+	return znr.mnt_dir.f.fs->ops->get_extents_in_range(sector, nr_sectors,
 							 ext, nr_ext);
 }
 
@@ -331,7 +331,7 @@ int znr_fs_report_blockgroups(struct znr_blockgroup *bgs,
 		return znr_net_get_blockgroup_report(&znr.ncli, bgs, bg_no,
 						     nr_bgs);
 
-	return znr.mnt_dir.fs->ops->report_blockgroups(bgs, bg_no, nr_bgs);
+	return znr.mnt_dir.f.fs->ops->report_blockgroups(bgs, bg_no, nr_bgs);
 }
 
 int znr_fs_get_blockgroups(struct znr_blockgroup **bgs,
@@ -341,7 +341,7 @@ int znr_fs_get_blockgroups(struct znr_blockgroup **bgs,
 		return znr_net_get_blockgroups(&znr.ncli, bgs,
 					       nr_bgs);
 
-	return znr.mnt_dir.fs->ops->get_blockgroups(bgs, nr_bgs);
+	return znr.mnt_dir.f.fs->ops->get_blockgroups(bgs, nr_bgs);
 }
 
 int znr_fs_open(const char *path)
@@ -405,7 +405,7 @@ int znr_fs_open(const char *path)
 		goto end;
 	}
 
-	ret = asprintf(&znr.mnt_dir.path, "%s", mnt->mnt_dir);
+	ret = asprintf(&znr.mnt_dir.f.path, "%s", mnt->mnt_dir);
 	if (ret < 0) {
 		fprintf(stderr, "Initialization failed\n");
 		goto end;
@@ -414,33 +414,33 @@ int znr_fs_open(const char *path)
 	ret = asprintf(&znr.dev_path, "%s", mnt->mnt_fsname);
 	if (ret < 0) {
 		fprintf(stderr, "Initialization failed\n");
-		free(znr.mnt_dir.path);
-		znr.mnt_dir.path = NULL;
+		free(znr.mnt_dir.f.path);
+		znr.mnt_dir.f.path = NULL;
 		goto end;
 	}
 
 	/* Open the directory to get the file system type. */
-	ret = znr_fs_open_file(&znr.mnt_dir, false);
+	ret = znr_fs_open_file(&znr.mnt_dir.f, false);
 	if (ret)
 		goto cleanup;
 
-	ret = znr_fs_get_file_fs(&znr.mnt_dir);
+	ret = znr_fs_get_file_fs(&znr.mnt_dir.f);
 	if (ret)
 		goto cleanup;
 
-	ret = mntent_copy(&znr.mnt_dir.mnt, mnt);
+	ret = mntent_copy(&znr.mnt_dir.f.mnt, mnt);
 	if (ret)
 		goto cleanup;
 
-	ret = znr_fs_init_fs(&znr.mnt_dir);
+	ret = znr_fs_init_fs(&znr.mnt_dir.f);
 	if (ret)
 		goto cleanup;
 
 	goto end;
 
 cleanup:
-	free(znr.mnt_dir.path);
-	znr.mnt_dir.path = NULL;
+	free(znr.mnt_dir.f.path);
+	znr.mnt_dir.f.path = NULL;
 	free(znr.dev_path);
 	znr.dev_path = NULL;
 
@@ -452,5 +452,5 @@ end:
 
 void znr_fs_close(void)
 {
-	znr_fs_clear_file(&znr.mnt_dir);
+	znr_fs_clear_file(&znr.mnt_dir.f);
 }

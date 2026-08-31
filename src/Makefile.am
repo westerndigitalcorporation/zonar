@@ -7,7 +7,7 @@ AM_CFLAGS = \
         -Wall -Wextra -Wno-unused-parameter
 
 if HAS_XFS
-XFS_SOURCES = znr_xfs.c
+XFS_SOURCES = znr_xfs.c znr_xfs.h
 endif
 
 bin_PROGRAMS = zonar_srv

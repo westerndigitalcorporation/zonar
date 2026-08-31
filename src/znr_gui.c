@@ -1325,9 +1325,8 @@ static void znr_gui_search_file_cb(GtkWidget *button, gpointer user_data)
         ret = znr_fs_get_file_extents_by_path(text, &f, &extents, &nr_extents);
         if (ret) {
                 znr_gui_err("Failed to get file extents",
-			    "File: %s/%s\nError: %s",
-                            znr.mnt_dir.path, text,
-                            strerror(errno));
+			    "File: %s/%s\nError: %s", znr.mnt_dir.f.path, text,
+			    strerror(errno));
                 znr_gui_clear_file_search_entry();
                 return;
         }
@@ -1583,8 +1582,8 @@ static void znr_gui_create_app(GtkApplication *app, gpointer user_data)
 	/* Create a top frame */
 	n = snprintf(str, sizeof(str) - 1,
 		     "<b>%s</b> at <b>%s</b> (%u blockgroups) on <b>%s</b> ",
-		     znr.mnt_dir.fs->name,
-		     znr.mnt_dir.path, znr.nr_bgs,
+		     znr.mnt_dir.f.fs->name,
+		     znr.mnt_dir.f.path, znr.nr_bgs,
 		     znr.dev_path);
 	if (!znr.nr_conv_zones)
 		snprintf(str + n, sizeof(str) - (n + 1),
@@ -1790,7 +1789,7 @@ static void znr_gui_create_app(GtkApplication *app, gpointer user_data)
 	gtk_frame_set_child(GTK_FRAME(frame), hbox);
 
 	/* FS mount path label */
-	snprintf(str, sizeof(str) - 1, "<b>%s/</b>", znr.mnt_dir.path);
+	snprintf(str, sizeof(str) - 1, "<b>%s/</b>", znr.mnt_dir.f.path);
 	label = gtk_label_new(NULL);
 	gtk_label_set_markup(GTK_LABEL(label), str);
 	gtk_widget_set_margin_start(label, 10);
