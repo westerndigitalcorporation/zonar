@@ -22,4 +22,9 @@ enum xfs_device_type {
 	XFS_RT_DEV	= 2,
 };
 
+enum xfs_extent_type {
+	XFS_AG_EXTENT	= 1,
+	XFS_RG_EXTENT	= 2,
+};
+
 #endif /* ZNR_XFS_H */
