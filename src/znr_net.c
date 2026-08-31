@@ -258,8 +258,8 @@ static int znr_net_send_mntdir_info_rep(struct znr_net_client *ncli)
 	znr_verbose("Sending mntdir info reply\n");
 
 	memset(&mntdir_info, 0, sizeof(mntdir_info));
-	mntdir_info.fs_type = znr.mnt_dir.fs->type;
-	strncpy((char *)mntdir_info.mnt_path, znr.mnt_dir.path,
+	mntdir_info.fs_type = znr.mnt_dir.f.fs->type;
+	strncpy((char *)mntdir_info.mnt_path, znr.mnt_dir.f.path,
 		sizeof(mntdir_info.mnt_path) - 1);
 
 	return znr_net_send_rep(ncli, ZNR_NET_MNTDIR_INFO, 0,
@@ -838,15 +838,15 @@ int znr_net_get_mntdir_info(struct znr_net_client *ncli)
 		goto free;
 	}
 
-	znr.mnt_dir.path = strdup((char *)mntdir_info->mnt_path);
-	if (!znr.mnt_dir.path) {
+	znr.mnt_dir.f.path = strdup((char *)mntdir_info->mnt_path);
+	if (!znr.mnt_dir.f.path) {
 		znr_err("Get FS path failed\n");
 		ret = -1;
 		goto free;
 	}
 
-	znr.mnt_dir.fs = znr_fs_get_net(mntdir_info->fs_type);
-	if (!znr.mnt_dir.fs) {
+	znr.mnt_dir.f.fs = znr_fs_get_net(mntdir_info->fs_type);
+	if (!znr.mnt_dir.f.fs) {
 		znr_err("Get FS type failed\n");
 		ret = -1;
 	}

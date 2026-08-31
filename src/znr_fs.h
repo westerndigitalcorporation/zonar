@@ -8,6 +8,9 @@
 #include "config.h"
 #include "znr_device.h"
 #include "znr_bg.h"
+#ifdef HAS_XFS
+#include "znr_xfs.h"
+#endif
 
 #include <stdlib.h>
 #include <stdbool.h>
@@ -66,6 +69,21 @@ struct znr_fs_file {
 	off_t			size;
 	mode_t			mode;
 	int			fd;
+};
+
+struct znr_mnt_dir {
+	union {
+#ifdef HAS_XFS
+		struct znr_fs_xfs	xfs;
+#endif
+		/*
+		 * Incase we are building without any FS support (i.e. GUI only
+		 * for remote use), define rsvd to avoid an empty union. Which
+		 * would be undefined behaviour.
+		 */
+		uint8_t			rsvd;
+	} fs;
+	struct znr_fs_file		f;
 };
 
 /*

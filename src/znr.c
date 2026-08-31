@@ -114,7 +114,7 @@ err:
 void znr_print_info(void)
 {
 	printf("Mount directory %s: %s on device %s\n",
-	       znr.mnt_dir.path, znr.mnt_dir.fs->name,
+	       znr.mnt_dir.f.path, znr.mnt_dir.f.fs->name,
 	       znr.dev_path);
 	printf("  Vendor ID: %s\n", znr.dev.vendor_id);
 	printf("  Capacity: %llu GB (%llu 512-bytes sectors)\n",
