@@ -525,8 +525,7 @@ static bool znr_gui_should_draw_bg_extents(struct znr_gui_blockgroup *bg,
 static inline bool znr_gui_extent_is_in_bg(struct znr_extent *ext,
 					   struct znr_blockgroup *bg)
 {
-	return ext->sector >= bg->sector &&
-		ext->sector + ext->nr_sectors <= bg->sector + bg->nr_sectors;
+	return znr_fs_ext_in_bg(ext, bg);
 }
 
 static void
