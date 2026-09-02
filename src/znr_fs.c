@@ -360,6 +360,7 @@ int znr_fs_open(const char *path)
 	struct mntent *mnt;
 	struct stat st;
 	FILE *mtab;
+	char *rpath;
 	int ret = 0;
 
 	if (znr.is_net_client)
@@ -377,11 +378,23 @@ int znr_fs_open(const char *path)
 		return -EINVAL;
 	}
 
+	/*
+	 * Canonicalize the path so that it matches the mount directory listed
+	 * in mtab regardless of trailing slashes or symbolic links.
+	 */
+	rpath = realpath(path, NULL);
+	if (!rpath) {
+		fprintf(stderr, "Failed to resolve path %s (%s)\n",
+			path, strerror(errno));
+		return -errno;
+	}
+
 	/* Search mount directory */
 	mtab = setmntent("/etc/mtab", "r");
 	if (!mtab) {
 		fprintf(stderr, "Failed to open /etc/mtab (%s)\n",
 			strerror(errno));
+		free(rpath);
 		return -errno;
 	}
 
@@ -390,13 +403,13 @@ int znr_fs_open(const char *path)
 		if (!mnt)
 			break;
 
-		if (strcmp(mnt->mnt_dir, path) == 0)
+		if (strcmp(mnt->mnt_dir, rpath) == 0)
 			break;
 	}
 
 	if (!mnt) {
 		fprintf(stderr, "Directory %s is not a mount directory\n",
-			path);
+			rpath);
 		ret = -EINVAL;
 		goto end;
 	}
@@ -457,6 +470,7 @@ cleanup:
 
 end:
 	endmntent(mtab);
+	free(rpath);
 
 	return ret;
 }
