@@ -68,6 +68,13 @@ enum znr_bg_flags {
 	 */
 	ZNR_BG_METADATA		= (1U << 2),
 	/*
+	 * Set for a block group that represents a device zone which
+	 * is not (yet) backed by any filesystem block group. Filesystems that
+	 * allocate space on demand (e.g. btrfs) use this to show otherwise
+	 * unallocated zones.
+	 */
+	ZNR_BG_EMPTY		= (1U << 3),
+	/*
 	 * Set if the backing zone mapping has been initialized for this
 	 * blockgroup. This flag is valid only for the local context, as such
 	 * shall not be sent over the network.
