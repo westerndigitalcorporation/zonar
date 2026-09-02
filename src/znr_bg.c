@@ -83,8 +83,8 @@ static int znr_bg_get_zone_mapping(struct znr_blockgroup *bg,
 			bg->zones = NULL;
 			return -EINVAL;
 		}
-		bg->nr_zones = bg_zone_idx;
 		bg->zones[bg_zone_idx++] = &zones[start_zno + j];
+		bg->nr_zones = bg_zone_idx;
 	}
 
 	if (!bg_zone_idx) {
