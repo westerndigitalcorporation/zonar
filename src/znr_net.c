@@ -12,8 +12,9 @@
 #include "znr.h"
 
 static struct znr_fs znrfs_net[] = {
-	{ ZNR_FS_XFS,		"XFS",	NULL },
-	{ ZNR_FS_UNKNOWN,	NULL,	NULL },
+	{ ZNR_FS_XFS,		"XFS",		NULL },
+	{ ZNR_FS_BTRFS,		"btrfs",	NULL },
+	{ ZNR_FS_UNKNOWN,	NULL,		NULL },
 };
 
 static struct znr_fs *znr_fs_get_net(enum znr_supported_fs type)
