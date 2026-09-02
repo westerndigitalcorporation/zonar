@@ -22,6 +22,9 @@ static struct znr_fs znrfs[] = {
 #ifdef HAS_XFS
 	{ ZNR_FS_XFS,		"XFS",	&znr_xfs_ops },
 #endif
+#ifdef HAS_BTRFS
+	{ ZNR_FS_BTRFS,		"btrfs",	&znr_btrfs_ops },
+#endif
 	{ ZNR_FS_UNKNOWN,	NULL,	NULL },
 };
 
@@ -55,6 +58,11 @@ static int znr_fs_get_file_fs(struct znr_fs_file *f)
 #ifdef HAS_XFS
 	case XFS_SUPER_MAGIC:
 		f->fs = &znrfs[ZNR_FS_XFS];
+		break;
+#endif
+#ifdef HAS_BTRFS
+	case BTRFS_SUPER_MAGIC:
+		f->fs = znr_fs_get(ZNR_FS_BTRFS);
 		break;
 #endif
 	default:

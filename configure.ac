@@ -72,6 +72,11 @@ AC_CHECK_HEADER(sys/syscall.h, [],
 AC_CHECK_HEADERS([xfs/xfs.h], [],
 		[AC_MSG_ERROR([xfs/xfs.h not found])])
 
+# btrfs support relies on the kernel UAPI headers only. Both the ioctl
+# interface and the on-disk tree definitions are required.
+AC_CHECK_HEADERS([linux/btrfs.h linux/btrfs_tree.h],
+		 [], [has_btrfs=no], [[#include <linux/btrfs.h>]])
+
 # Checks for macros and struct members
 AC_CHECK_MEMBER([struct blk_zone.capacity],
 		[AC_DEFINE(HAVE_BLK_ZONE_CAPACITY, [1],
@@ -122,6 +127,16 @@ AC_CHECK_MEMBERS([struct xfs_rtgroup_geometry.rg_writepointer],
 		 [[#include <xfs/xfs.h>]])
 
 AM_CONDITIONAL([XFS_HAS_RG_WP], [test "x$xfs_has_rg_wp" = "xyes"])
+
+# Enable btrfs support only if the required UAPI headers were all found. The
+# AC_CHECK_HEADERS above sets has_btrfs=no on a missing header.
+AS_IF([test "x$has_btrfs" = "xno"],
+	[AC_MSG_NOTICE([Building without btrfs support])],
+	[AC_DEFINE(HAS_BTRFS, [1], [btrfs support])
+	 has_btrfs=yes
+	 AC_MSG_NOTICE([Building with btrfs support])])
+
+AM_CONDITIONAL([HAS_BTRFS], [test "x$has_btrfs" = "xyes"])
 
 AC_CONFIG_FILES([
 	Makefile

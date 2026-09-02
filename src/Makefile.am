@@ -10,6 +10,10 @@ if HAS_XFS
 XFS_SOURCES = znr_xfs.c znr_xfs.h
 endif
 
+if HAS_BTRFS
+BTRFS_SOURCES = znr_btrfs.c
+endif
+
 bin_PROGRAMS = zonar_srv
 
 zonar_srv_SOURCES = \
@@ -19,6 +23,7 @@ zonar_srv_SOURCES = \
 	znr_net.h znr_net.c \
 	znr_bg.h znr_bg.c \
 	${XFS_SOURCES} \
+	${BTRFS_SOURCES} \
 	zonar_srv.c
 
 zonar_srv_CFLAGS = -D_GNU_SOURCE $(AM_CFLAGS)
@@ -36,6 +41,7 @@ zonar_SOURCES = \
 	znr_bg.h znr_bg.c \
 	znr_gui.c \
 	${XFS_SOURCES} \
+	${BTRFS_SOURCES} \
 	zonar.c
 
 zonar_CFLAGS = -D_GNU_SOURCE $(AM_CFLAGS) $(GTK_CFLAGS) $(LIBADWAITA_CFLAGS)
