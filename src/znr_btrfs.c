@@ -349,11 +349,28 @@ static int znr_btrfs_init_fs(struct znr_fs_file *f)
 
 }
 
+static int znr_btrfs_bg_cmp(const void *a, const void *b)
+{
+	const struct znr_blockgroup *x = a;
+	const struct znr_blockgroup *y = b;
+
+	if (x->sector < y->sector)
+		return -1;
+	if (x->sector > y->sector)
+		return 1;
+	return 0;
+}
+
 static int znr_btrfs_get_blockgroups(struct znr_blockgroup **bgs_out,
 				     unsigned int *nr_bgs)
 {
+	unsigned int nr_zones = znr.dev.nr_zones;
+	unsigned int zone_sectors = znr.dev.zone_sectors;
+	bool zoned = znr.dev.is_zoned && zone_sectors && nr_zones;
+	unsigned int total, idx = 0, nr_empty = 0;
 	struct znr_blockgroup *bgs;
-	unsigned int i;
+	bool *covered = NULL;
+	unsigned int i, z;
 
 	if (!bgs_out || !nr_bgs)
 		return -EINVAL;
@@ -361,21 +378,70 @@ static int znr_btrfs_get_blockgroups(struct znr_blockgroup **bgs_out,
 	if (!btrfs_nr_chunks)
 		return -ENODEV;
 
-	bgs = calloc(btrfs_nr_chunks, sizeof(*bgs));
-	if (!bgs)
-		return -ENOMEM;
+	/*
+	 * btrfs allocates block groups on demand, so device zones that are not
+	 * backed by a chunk have no entry in btrfs_chunks[]. On a zoned device,
+	 * synthesize an empty block group for each such zone so the whole
+	 * device is represented.
+	 */
+	if (zoned) {
+		covered = calloc(nr_zones, sizeof(*covered));
+		if (!covered)
+			return -ENOMEM;
 
-	/* One block group per chunk stripe, in device (physical) order. */
-	for (i = 0; i < btrfs_nr_chunks; i++) {
-		bgs[i].sector = btrfs_chunks[i].physical >> SECTOR_SHIFT;
-		bgs[i].nr_sectors = btrfs_chunks[i].length >> SECTOR_SHIFT;
-		if (btrfs_chunks[i].type &
-			(BTRFS_BLOCK_GROUP_METADATA | BTRFS_BLOCK_GROUP_SYSTEM))
-			bgs[i].flags |= ZNR_BG_METADATA;
+		for (i = 0; i < btrfs_nr_chunks; i++) {
+			uint64_t sec = btrfs_chunks[i].physical >> SECTOR_SHIFT;
+			uint64_t nsec = btrfs_chunks[i].length >> SECTOR_SHIFT;
+			unsigned int z0 = sec / zone_sectors;
+			unsigned int z1 = (sec + nsec - 1) / zone_sectors;
+
+			for (z = z0; z <= z1 && z < nr_zones; z++)
+				covered[z] = true;
+		}
+
+		for (z = 0; z < nr_zones; z++)
+			if (!covered[z])
+				nr_empty++;
 	}
 
+	total = btrfs_nr_chunks + nr_empty;
+	bgs = calloc(total, sizeof(*bgs));
+	if (!bgs) {
+		free(covered);
+		return -ENOMEM;
+	}
+
+	/* One block group per chunk stripe. */
+	for (i = 0; i < btrfs_nr_chunks; i++, idx++) {
+		bgs[idx].sector = btrfs_chunks[i].physical >> SECTOR_SHIFT;
+		bgs[idx].nr_sectors = btrfs_chunks[i].length >> SECTOR_SHIFT;
+		if (btrfs_chunks[i].type &
+		    (BTRFS_BLOCK_GROUP_METADATA | BTRFS_BLOCK_GROUP_SYSTEM))
+			bgs[idx].flags |= ZNR_BG_METADATA;
+	}
+
+	/* One empty block group per device zone with no chunk. */
+	for (z = 0; covered && z < nr_zones; z++) {
+		uint64_t sec = (uint64_t)z * zone_sectors;
+
+		if (covered[z])
+			continue;
+
+		bgs[idx].sector = sec;
+		bgs[idx].nr_sectors = zone_sectors;
+		if (sec + zone_sectors > znr.dev.nr_sectors)
+			bgs[idx].nr_sectors = znr.dev.nr_sectors - sec;
+		bgs[idx].flags = ZNR_BG_EMPTY;
+		idx++;
+	}
+
+	free(covered);
+
+	/* Present block groups in device (physical) order. */
+	qsort(bgs, total, sizeof(*bgs), znr_btrfs_bg_cmp);
+
 	*bgs_out = bgs;
-	*nr_bgs = btrfs_nr_chunks;
+	*nr_bgs = total;
 
 	return 0;
 }

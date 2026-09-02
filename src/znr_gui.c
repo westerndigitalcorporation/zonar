@@ -605,6 +605,7 @@ static void znr_gui_bg_draw_cb(GtkDrawingArea *drawing_area,
 	struct znr_gui_blockgroup *gui_bg = user_data;
 	struct znr_blockgroup *bg = gui_bg->bg;
 	const GdkRGBA *written = &znrg.color_seqw;
+	const char *role = "";
 	unsigned long long wp_sector;
 	unsigned int percent = 100;
 	bool bg_full;
@@ -682,11 +683,15 @@ static void znr_gui_bg_draw_cb(GtkDrawingArea *drawing_area,
 			snprintf(usage, sizeof(usage), "%u%%", percent);
 		}
 
+		if (bg->flags & ZNR_BG_EMPTY)
+			role = " • Unallocated";
+		else if (bg->flags & ZNR_BG_METADATA)
+			role = " • Metadata";
+
 		snprintf(info, sizeof(info),
 			 "Blockgroup [%u]: %s • Start: 0x%llx Size: 0x%llx sectors • WP: %s • Usage: %s%s",
 			 gui_bg->bg_no, type, bg->sector, bg->nr_sectors,
-			 wp, usage,
-			 (bg->flags & ZNR_BG_METADATA) ? " • Metadata" : "");
+			 wp, usage, role);
 		gtk_editable_set_text(GTK_EDITABLE(znrg.bg_status), info);
 	}
 }
