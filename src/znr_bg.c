@@ -60,7 +60,7 @@ static int znr_bg_get_zone_mapping(struct znr_blockgroup *bg,
 
 	bg_end = bg->sector + bg->nr_sectors;
 	start_zno = bg->sector / zone_sectors;
-	end_zno = bg_end / zone_sectors;
+	end_zno = (bg_end - 1) / zone_sectors;
 
 	if (start_zno > end_zno)
 		return -EINVAL;
@@ -76,7 +76,7 @@ static int znr_bg_get_zone_mapping(struct znr_blockgroup *bg,
 
 	bg_zone_idx = 0;
 	for (j = 0; j < max_zones_per_bg; j++) {
-		if (start_zno + j > nr_zones) {
+		if (start_zno + j >= nr_zones) {
 			fprintf(stderr, "Invalid zone index in blockgroup [%u/%u]\n",
 				start_zno + j, nr_zones);
 			free(bg->zones);
@@ -237,7 +237,7 @@ static int znr_bg_report(struct znr_device *dev, struct blk_zone *zones,
 
 	ret = znr_bg_get_zone_info(&bgs[bg_no],
 				   nr_bgs,
-				   &zones[start_zone_no], nr_zones,
+				   zones, dev->nr_zones,
 				   dev->zone_sectors);
 	if (ret)
 		return ret;
