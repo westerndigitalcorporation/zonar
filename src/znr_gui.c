@@ -100,6 +100,8 @@ struct znr_gui {
 	GdkRGBA			color_conv;
 	GdkRGBA			color_seq;
 	GdkRGBA			color_seqw;
+	GdkRGBA			color_meta;
+	GdkRGBA			color_metaw;
 	GdkRGBA			color_delta;
 	GdkRGBA			color_text;
 	GdkRGBA			color_jz;
@@ -371,7 +373,7 @@ static void znr_gui_update(void)
 		gtk_widget_queue_draw(GTK_WIDGET(value));
 }
 
-static inline void znr_gui_draw_rect(cairo_t *cr, GdkRGBA *color, double x,
+static inline void znr_gui_draw_rect(cairo_t *cr, const GdkRGBA *color, double x,
 				     double y, double width, double height)
 {
 	gdk_cairo_set_source_rgba(cr, color);
@@ -379,7 +381,7 @@ static inline void znr_gui_draw_rect(cairo_t *cr, GdkRGBA *color, double x,
 	cairo_fill(cr);
 }
 
-static inline long long znr_gui_draw_wp_rect(cairo_t *cr, GdkRGBA *color,
+static inline long long znr_gui_draw_wp_rect(cairo_t *cr, const GdkRGBA *color,
 					     double x, double y,
 					     long long width, long long height,
 					     unsigned long write_pointer,
@@ -395,7 +397,8 @@ static inline long long znr_gui_draw_wp_rect(cairo_t *cr, GdkRGBA *color,
 }
 
 static void znr_gui_draw_bg_written(struct znr_blockgroup *bg,
-				    cairo_t *cr, int width, int height)
+				    cairo_t *cr, int width, int height,
+				    const GdkRGBA *written)
 {
 	long long x;
 	bool bg_full;
@@ -417,14 +420,14 @@ static void znr_gui_draw_bg_written(struct znr_blockgroup *bg,
 
 	/* if the blockgroup is full, draw across the full width. */
 	if (bg_full) {
-		gdk_cairo_set_source_rgba(cr, &znrg.color_seqw);
+		gdk_cairo_set_source_rgba(cr, written);
 		cairo_rectangle(cr, 0, 0, width, height);
 		cairo_fill(cr);
 		return;
 	}
 
 	/* Written space in blockgroup */
-	x = znr_gui_draw_wp_rect(cr, &znrg.color_seqw, 0, 0, width, height, wp,
+	x = znr_gui_draw_wp_rect(cr, written, 0, 0, width, height, wp,
 				 bg->nr_sectors);
 
 	/* To draw the delta, make sure both write pointers are valid. */
@@ -601,6 +604,7 @@ static void znr_gui_bg_draw_cb(GtkDrawingArea *drawing_area,
 {
 	struct znr_gui_blockgroup *gui_bg = user_data;
 	struct znr_blockgroup *bg = gui_bg->bg;
+	const GdkRGBA *written = &znrg.color_seqw;
 	unsigned long long wp_sector;
 	unsigned int percent = 100;
 	bool bg_full;
@@ -613,16 +617,23 @@ static void znr_gui_bg_draw_cb(GtkDrawingArea *drawing_area,
 	if (!bg)
 		return;
 
-	/* Draw blockgroup background based on type in flags field */
-	if (znr_bg_has_wp(bg))
+        /*
+         * Draw the blockgroup background. Metadata blockgroups are drawn in
+         * blue, otherwise the colour reflects the backing zone type.
+         */
+        if (bg->flags & ZNR_BG_METADATA) {
+		gdk_cairo_set_source_rgba(cr, &znrg.color_meta);
+		written = &znrg.color_metaw;
+	} else if (znr_bg_has_wp(bg)) {
 		gdk_cairo_set_source_rgba(cr, &znrg.color_seq);
-	else
+	} else {
 		gdk_cairo_set_source_rgba(cr, &znrg.color_conv);
+	}
 
 	cairo_rectangle(cr, 0, 0, width, height);
 	cairo_fill(cr);
 
-	znr_gui_draw_bg_written(bg, cr, width, height);
+	znr_gui_draw_bg_written(bg, cr, width, height, written);
 
 	/* Draw file extents */
 	znr_gui_draw_bg_extents(gui_bg, cr, width, height);
@@ -672,9 +683,10 @@ static void znr_gui_bg_draw_cb(GtkDrawingArea *drawing_area,
 		}
 
 		snprintf(info, sizeof(info),
-			 "Blockgroup [%u]: %s • Start: 0x%llx Size: 0x%llx sectors • WP: %s • Usage: %s",
+			 "Blockgroup [%u]: %s • Start: 0x%llx Size: 0x%llx sectors • WP: %s • Usage: %s%s",
 			 gui_bg->bg_no, type, bg->sector, bg->nr_sectors,
-			 wp, usage);
+			 wp, usage,
+			 (bg->flags & ZNR_BG_METADATA) ? " • Metadata" : "");
 		gtk_editable_set_text(GTK_EDITABLE(znrg.bg_status), info);
 	}
 }
@@ -1068,6 +1080,14 @@ static void znr_gui_draw_legend_cb(GtkDrawingArea *drawing_area,
 	/* Blockgroup sequentially written (write-pointer). */
 	znr_gui_draw_legend("Sequential (Written)",
 			    &znrg.color_seqw, cr, &x, y, widget);
+
+	/*
+	 * Blockgroup storing filesystem metadata. Only shown for filesystems
+	 * that can store metadata on sequential zones.
+	 */
+	if (znr.mnt_dir.f.fs && znr.mnt_dir.f.fs->type == ZNR_FS_BTRFS)
+		znr_gui_draw_legend("Metadata",
+				    &znrg.color_metaw, cr, &x, y, widget);
 
 	/* File extent highlight. */
 	znr_gui_draw_legend("File Extent",
@@ -1564,6 +1584,8 @@ static void znr_gui_create_app(GtkApplication *app, gpointer user_data)
 	gdk_rgba_parse(&znrg.color_conv, "Magenta");
 	gdk_rgba_parse(&znrg.color_seq, "#25bb00ff");
 	gdk_rgba_parse(&znrg.color_seqw, "Red");
+	gdk_rgba_parse(&znrg.color_meta, "#25bb00ff");
+	gdk_rgba_parse(&znrg.color_metaw, "#0a49d6");
 	gdk_rgba_parse(&znrg.color_delta, "Orange");
 	gdk_rgba_parse(&znrg.color_text, "Black");
 	gdk_rgba_parse(&znrg.color_jz, "Indigo");

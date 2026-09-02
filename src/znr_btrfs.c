@@ -369,6 +369,9 @@ static int znr_btrfs_get_blockgroups(struct znr_blockgroup **bgs_out,
 	for (i = 0; i < btrfs_nr_chunks; i++) {
 		bgs[i].sector = btrfs_chunks[i].physical >> SECTOR_SHIFT;
 		bgs[i].nr_sectors = btrfs_chunks[i].length >> SECTOR_SHIFT;
+		if (btrfs_chunks[i].type &
+			(BTRFS_BLOCK_GROUP_METADATA | BTRFS_BLOCK_GROUP_SYSTEM))
+			bgs[i].flags |= ZNR_BG_METADATA;
 	}
 
 	*bgs_out = bgs;
@@ -401,7 +404,7 @@ static void znr_btrfs_ino_path(uint64_t root, uint64_t ino,
 	args.treeid = root;
 	args.objectid = ino;
 
-	if (ioctl(znr.mnt_dir.fd, BTRFS_IOC_INO_LOOKUP, &args) < 0)
+	if (ioctl(znr.mnt_dir.f.fd, BTRFS_IOC_INO_LOOKUP, &args) < 0)
 		return;
 
 	args.name[sizeof(args.name) - 1] = '\0';
@@ -650,6 +653,7 @@ static int znr_btrfs_range_extent_cb(const struct btrfs_ioctl_search_header *sh,
 
 static int znr_btrfs_get_range_extents(unsigned long long sector,
 				       unsigned long long nr_sectors,
+				       unsigned int flags __attribute__((unused)),
 				       struct znr_extent **extents,
 				       unsigned int *nr_extents)
 {
@@ -678,7 +682,7 @@ static int znr_btrfs_get_range_extents(unsigned long long sector,
 		ctx.log_lo = c->logical + (ov_start - c->physical);
 		ctx.log_hi = c->logical + (ov_end - c->physical);
 
-		ret = znr_btrfs_tree_search(znr.mnt_dir.fd,
+		ret = znr_btrfs_tree_search(znr.mnt_dir.f.fd,
 					    BTRFS_EXTENT_TREE_OBJECTID,
 					    c->logical, ctx.log_hi - 1,
 					    BTRFS_EXTENT_ITEM_KEY,
