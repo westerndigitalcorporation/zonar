@@ -396,6 +396,9 @@ static int znr_btrfs_get_blockgroups(struct znr_blockgroup **bgs_out,
 	for (i = 0; i < btrfs_nr_chunks; i++) {
 		bgs[i].sector = btrfs_chunks[i].physical >> SECTOR_SHIFT;
 		bgs[i].nr_sectors = btrfs_chunks[i].length >> SECTOR_SHIFT;
+		if (btrfs_chunks[i].type &
+			(BTRFS_BLOCK_GROUP_METADATA | BTRFS_BLOCK_GROUP_SYSTEM))
+			bgs[i].flags |= ZNR_BG_METADATA;
 	}
 
 	*bgs_out = bgs;

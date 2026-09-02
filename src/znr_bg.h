@@ -63,6 +63,11 @@ enum znr_bg_flags {
 	/* Set if the filesystem provides a write pointer. */
 	ZNR_BG_HAS_FS_WP	= (1U << 1),
 	/*
+	 * Set for a block group that stores filesystem metadata rather than
+	 * file data.
+	 */
+	ZNR_BG_METADATA		= (1U << 2),
+	/*
 	 * Set if the backing zone mapping has been initialized for this
 	 * blockgroup. This flag is valid only for the local context, as such
 	 * shall not be sent over the network.
