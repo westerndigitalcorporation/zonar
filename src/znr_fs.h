@@ -132,6 +132,24 @@ static inline bool znr_fs_ext_in_bg(struct znr_extent *ext,
 	       ext->sector + ext->nr_sectors <= bg->sector + bg->nr_sectors;
 }
 
+/*
+ * An FS specific helper function that returns true if metadata can be stored
+ * in sequential write zones/blockgroups.
+ */
+static inline bool znr_fs_seqwr_has_metadata(struct znr_fs_file *f)
+{
+	if (!f)
+		return false;
+
+	switch(f->fs->type) {
+	case ZNR_FS_BTRFS:
+		return true;
+	default:
+		return false;
+	}
+}
+
+
 /* XFS functions (znr_xfs.c) */
 extern const struct znr_fs_ops znr_xfs_ops;
 
