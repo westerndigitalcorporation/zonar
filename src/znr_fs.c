@@ -72,7 +72,7 @@ static int znr_fs_init_fs(struct znr_fs_file *f)
 
 static int znr_fs_destroy_fs(struct znr_fs_file *f)
 {
-	if (f->fs->ops->destroy_fs)
+	if (f->fs->ops && f->fs->ops->destroy_fs)
 		return f->fs->ops->destroy_fs();
 
 	return 0;
