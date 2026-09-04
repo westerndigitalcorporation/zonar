@@ -1090,7 +1090,7 @@ static void znr_gui_draw_legend_cb(GtkDrawingArea *drawing_area,
 	 * Blockgroup storing filesystem metadata. Only shown for filesystems
 	 * that can store metadata on sequential zones.
 	 */
-	if (znr.mnt_dir.f.fs && znr.mnt_dir.f.fs->type == ZNR_FS_BTRFS)
+	if (znr_fs_seqwr_has_metadata(&znr.mnt_dir.f))
 		znr_gui_draw_legend("Metadata",
 				    &znrg.color_metaw, cr, &x, y, widget);
 
