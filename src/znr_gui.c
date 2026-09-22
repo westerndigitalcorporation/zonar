@@ -1565,9 +1565,9 @@ static void znr_gui_create_app(GtkApplication *app, gpointer user_data)
 		return;
 
 	/* Get colors */
-	gdk_rgba_parse(&znrg.color_conv, "Magenta");
-	gdk_rgba_parse(&znrg.color_seq, "#25bb00ff");
-	gdk_rgba_parse(&znrg.color_seqw, "Red");
+	gdk_rgba_parse(&znrg.color_conv, "#fa3bdd");
+	gdk_rgba_parse(&znrg.color_seq, "#50e00d");
+	gdk_rgba_parse(&znrg.color_seqw, "#f8061a");
 	gdk_rgba_parse(&znrg.color_delta, "Orange");
 	gdk_rgba_parse(&znrg.color_text, "Black");
 	gdk_rgba_parse(&znrg.color_jz, "Indigo");
