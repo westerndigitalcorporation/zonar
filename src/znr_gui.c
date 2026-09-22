@@ -581,6 +581,7 @@ znr_gui_draw_bg_extents(struct znr_gui_blockgroup *gui_bg, cairo_t *cr,
 		/* Draw extent number */
 		sprintf(str, "%d", ext->idx);
 		cairo_text_extents(cr, str, &te);
+		cairo_set_font_size(cr, znrg.zoom_level);
 
 		/*
 		 * With heavily fragmented files, only draw the extent number
