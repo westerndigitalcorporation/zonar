@@ -679,30 +679,30 @@ static void znr_gui_bg_draw_cb(GtkDrawingArea *drawing_area,
 	}
 }
 
-static gboolean znr_gui_bg_enter_cb(GtkWidget *widget, gpointer user_data)
+static void znr_gui_bg_enter_cb(GtkEventControllerMotion *self,
+				double x __attribute__((unused)),
+				double y __attribute__((unused)),
+				gpointer user_data)
 {
 	struct znr_gui_blockgroup *gui_bg = user_data;
 
-	if (!gui_bg || !widget || !gui_bg->da)
-		return FALSE;
+	if (!gui_bg || !self || !gui_bg->da)
+		return;
 
 	gui_bg->hovered = true;
 	gtk_widget_queue_draw(gui_bg->da);
-
-	return FALSE;
 }
 
-static gboolean znr_gui_bg_leave_cb(GtkWidget *widget, gpointer user_data)
+static void znr_gui_bg_leave_cb(GtkEventControllerMotion *self,
+				gpointer user_data)
 {
 	struct znr_gui_blockgroup *gui_bg = user_data;
 
-	if (!gui_bg || !widget || !gui_bg->da)
-		return FALSE;
+	if (!gui_bg || !self || !gui_bg->da)
+		return;
 
 	gui_bg->hovered = false;
 	gtk_widget_queue_draw(gui_bg->da);
-
-	return FALSE;
 }
 
 static void znr_gui_close_extents_tab(struct znr_gui_extents_tab *tab)
@@ -1514,8 +1514,11 @@ static GtkWidget *znr_gui_create_grid(void)
  * Called when the user resizes the window, adjusts the number of columns
  * accordingly
  */
-static void window_size_changed_cb(GtkWidget *widget)
+static void window_size_changed_cb(GObject *object,
+				   GParamSpec *pspec __attribute__((unused)),
+				   gpointer user_data __attribute__((unused)))
 {
+	GtkWidget *widget = GTK_WIDGET(object);
 	unsigned int w = gtk_widget_get_width(widget);
 	int bg_da_w = 0;
 	unsigned int max_cols;
