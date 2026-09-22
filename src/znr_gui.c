@@ -444,13 +444,14 @@ static void znr_gui_draw_bg_num(struct znr_gui_blockgroup *bg,
 				cairo_t *cr, int width, int height)
 {
 	cairo_text_extents_t te;
+	int font_size = znrg.zoom_level;
 	char str[16];
 
 	/* Draw blockgroup number */
 	gdk_cairo_set_source_rgba(cr, &znrg.color_text);
 	cairo_select_font_face(cr, "Monospace",
 			       CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-	cairo_set_font_size(cr, 10);
+	cairo_set_font_size(cr, font_size);
 
 	snprintf(str, sizeof(str), "%u", bg->bg_no);
 	cairo_text_extents(cr, str, &te);
