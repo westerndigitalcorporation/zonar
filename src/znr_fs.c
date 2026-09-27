@@ -300,6 +300,12 @@ int znr_fs_get_file_extents_by_path(const char *path,
 		return ret;
 	}
 
+	/*
+	 * Capture the file inode number, all of the extents should share the
+	 * ino.
+	 */
+	if (nr_extents)
+		f->ino = extents[0]->ino;
 	*file = f;
 
 	return 0;
