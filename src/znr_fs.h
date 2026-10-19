@@ -24,6 +24,7 @@
 
 enum znr_supported_fs {
 	ZNR_FS_XFS,
+	ZNR_FS_BTRFS,
 	ZNR_FS_UNKNOWN,
 };
 
@@ -131,8 +132,29 @@ static inline bool znr_fs_ext_in_bg(struct znr_extent *ext,
 	       ext->sector + ext->nr_sectors <= bg->sector + bg->nr_sectors;
 }
 
+/*
+ * An FS specific helper function that returns true if metadata can be stored
+ * in sequential write zones/blockgroups.
+ */
+static inline bool znr_fs_seqwr_has_metadata(struct znr_fs_file *f)
+{
+	if (!f)
+		return false;
+
+	switch(f->fs->type) {
+	case ZNR_FS_BTRFS:
+		return true;
+	default:
+		return false;
+	}
+}
+
+
 /* XFS functions (znr_xfs.c) */
 extern const struct znr_fs_ops znr_xfs_ops;
+
+/* btrfs functions (znr_btrfs.c) */
+extern const struct znr_fs_ops znr_btrfs_ops;
 
 struct znr_fs *znr_fs_get(enum znr_supported_fs type);
 int znr_fs_open(const char *path);

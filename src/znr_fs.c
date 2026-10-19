@@ -22,6 +22,9 @@ static struct znr_fs znrfs[] = {
 #ifdef HAS_XFS
 	{ ZNR_FS_XFS,		"XFS",	&znr_xfs_ops },
 #endif
+#ifdef HAS_BTRFS
+	{ ZNR_FS_BTRFS,		"btrfs",	&znr_btrfs_ops },
+#endif
 	{ ZNR_FS_UNKNOWN,	NULL,	NULL },
 };
 
@@ -55,6 +58,11 @@ static int znr_fs_get_file_fs(struct znr_fs_file *f)
 #ifdef HAS_XFS
 	case XFS_SUPER_MAGIC:
 		f->fs = &znrfs[ZNR_FS_XFS];
+		break;
+#endif
+#ifdef HAS_BTRFS
+	case BTRFS_SUPER_MAGIC:
+		f->fs = znr_fs_get(ZNR_FS_BTRFS);
 		break;
 #endif
 	default:
@@ -366,6 +374,7 @@ int znr_fs_open(const char *path)
 	struct mntent *mnt;
 	struct stat st;
 	FILE *mtab;
+	char *rpath;
 	int ret = 0;
 
 	if (znr.is_net_client)
@@ -383,11 +392,23 @@ int znr_fs_open(const char *path)
 		return -EINVAL;
 	}
 
+	/*
+	 * Canonicalize the path so that it matches the mount directory listed
+	 * in mtab regardless of trailing slashes or symbolic links.
+	 */
+	rpath = realpath(path, NULL);
+	if (!rpath) {
+		fprintf(stderr, "Failed to resolve path %s (%s)\n",
+			path, strerror(errno));
+		return -errno;
+	}
+
 	/* Search mount directory */
 	mtab = setmntent("/etc/mtab", "r");
 	if (!mtab) {
 		fprintf(stderr, "Failed to open /etc/mtab (%s)\n",
 			strerror(errno));
+		free(rpath);
 		return -errno;
 	}
 
@@ -396,13 +417,13 @@ int znr_fs_open(const char *path)
 		if (!mnt)
 			break;
 
-		if (strcmp(mnt->mnt_dir, path) == 0)
+		if (strcmp(mnt->mnt_dir, rpath) == 0)
 			break;
 	}
 
 	if (!mnt) {
 		fprintf(stderr, "Directory %s is not a mount directory\n",
-			path);
+			rpath);
 		ret = -EINVAL;
 		goto end;
 	}
@@ -463,6 +484,7 @@ cleanup:
 
 end:
 	endmntent(mtab);
+	free(rpath);
 
 	return ret;
 }

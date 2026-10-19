@@ -8,7 +8,7 @@ devices.
 Zonar supports both local and remote operation through a client-server
 architecture, allowing inspecting file systems on remote systems.
 
-Currently, Zonar supports only the XFS file system.
+Currently, Zonar supports the XFS and BTRFS file systems.
 
 ## Zonar in action (XFS on a zloop device)
 
