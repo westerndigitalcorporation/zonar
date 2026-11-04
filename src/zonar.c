@@ -10,8 +10,102 @@
 #include <string.h>
 #include <errno.h>
 #include <glib.h>
+#include <sys/wait.h>
 
 #include "znr.h"
+
+int znr_waitpid(pid_t pid)
+{
+	int status, ret = 0;
+
+	ret = waitpid(pid, &status, 0);
+	if (ret < 0)
+		return -1;
+	ret = WIFEXITED(status);
+	if (!ret) {
+		znr_err("zonar_srv: stopped/killed with status: %d\n", status);
+		return ret;
+	}
+	return 0;
+}
+
+/*
+ * Setup the zonar server @srv on @mntdir mount directory as a root
+ * child process.
+ */
+int znr_pkexec(const char* srv, char *mntdir)
+{
+	char *rpath, *rsrv;
+	int ret = -1;
+	pid_t pid;
+
+	rpath = realpath(mntdir, NULL);
+	if (!rpath) {
+		znr_err("Failed to resolve path %s (%s)\n",
+			mntdir, strerror(errno));
+		return ret;
+	}
+
+	/* If the user did not specify a path, default to ZONAR_SRV_PATH, which
+	 * is an abosolute path. This needs to match the policy exec.path
+	 * for our rules to apply.
+	 */
+	if (!srv)
+		rsrv = strdup(ZONAR_SRV_PATH);
+	else
+		rsrv = realpath(srv, NULL);
+	if (!rsrv) {
+		znr_err("Failed to resolve server path %s (%s)\n",
+			srv, strerror(errno));
+		goto free_rpath;
+	}
+
+	pid = fork();
+	if (pid < 0)
+		goto free_rsrv;
+	znr.pid = pid;
+
+	/* child */
+	if (pid == 0) {
+		char *args[12];
+		char port[8];
+		uint8_t argc = 0;
+
+		args[argc++] = "pkexec";
+		args[argc++] = rsrv;
+
+		if (znr.verbose)
+			args[argc++] = "-v";
+
+		args[argc++] = "-c";
+		args[argc++] = ZNR_INADDR_LOOPBACK;
+
+		if (znr.port) {
+		    if (snprintf(port, sizeof(port), "%d", znr.port) < 0) {
+			    znr_err("Failed to convert port to string\n");
+		    } else {
+			args[argc++] = "-p";
+			args[argc++] = port;
+		    }
+		}
+
+		args[argc++] = rpath;
+		args[argc] = NULL;
+
+		/* returns only on error */
+		execvp("pkexec", args);
+		perror("execvp");
+		_exit(127);
+	}
+
+	znr_verbose("running Zonar server from: %s\n", rsrv);
+	ret = 0;
+free_rsrv:
+	free(rsrv);
+free_rpath:
+	free(rpath);
+	return ret;
+}
 
 int main(int argc, char **argv)
 {
@@ -21,6 +115,7 @@ int main(int argc, char **argv)
 	gchar *connect_addr = NULL;
 	gint port = 0;
 	char *mntdir = NULL;
+	char *srvpath = NULL;
 	GError *error = NULL;
 	GOptionContext *context;
 	GOptionEntry options[] = {
@@ -52,6 +147,12 @@ int main(int argc, char **argv)
 			"port", 'p', 0,
 			G_OPTION_ARG_INT, &port,
 			"Specify the connection port",
+			NULL
+		},
+		{
+			"server", 's', 0,
+			G_OPTION_ARG_FILENAME, &srvpath,
+			"Path to a Zonar server binary to run instead of the system default",
 			NULL
 		},
 		G_OPTION_ENTRY_NULL
@@ -120,6 +221,20 @@ int main(int argc, char **argv)
 	if (znr.verbose)
 		znr_verbose("Verbose mode enabled\n");
 
+	/*
+	 * Running locally, so setup the server with escalated privileges and
+	 * the GUI as a network client in reverse mode (server connects to us).
+	 *
+	 * Note that we are just falling back to network symantics here.
+	 */
+	if (!znr.connect && !znr.listen) {
+		znr.listen = true;
+		znr.is_net_client = true;
+		ret = znr_pkexec(srvpath, mntdir);
+		if (ret < 0)
+			return 1;
+	}
+
 	if (znr.connect)
 		ret = znr_net_connect(&znr.ncli);
 	else if (znr.listen)
@@ -142,6 +257,8 @@ out:
 	znr_net_disconnect(&znr.ncli);
 	if (ret)
 		return 1;
+	if (znr.pid)
+		return znr_waitpid(znr.pid);
 
 	return 0;
 }
