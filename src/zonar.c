@@ -107,6 +107,46 @@ free_rpath:
 	return ret;
 }
 
+static int znr_validate_args(const char *connect_addr, bool listen,
+			     const char *mntdir, const char *srvpath, int port)
+{
+	if (connect_addr && mntdir) {
+		fprintf(stderr,
+			"--connect and --mntdir are mutually exclusive\n");
+		return -1;
+	}
+
+	if (connect_addr && listen) {
+		fprintf(stderr,
+			"--connect and --listen are mutually exclusive\n");
+		return -1;
+	}
+
+	if (listen && mntdir) {
+		fprintf(stderr,
+			"--listen and --mntdir are mutually exclusive\n");
+		return -1;
+	}
+
+	if (srvpath && (connect_addr || listen)) {
+		fprintf(stderr,
+			"--server cannot be used with --connect or --listen\n");
+		return -1;
+	}
+
+	if (srvpath && !*srvpath) {
+		fprintf(stderr, "Invalid empty --server path\n");
+		return -1;
+	}
+
+	if (port < 0 || port > 65535) {
+		fprintf(stderr, "Invalid port %d\n", port);
+		return -1;
+	}
+
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
 	gboolean version = FALSE;
@@ -200,23 +240,8 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	if (connect_addr && mntdir) {
-		fprintf(stderr,
-			"--connect and --mntdir are mutually exclusive\n");
+	if (znr_validate_args(connect_addr, listen, mntdir, srvpath, port))
 		return 1;
-	}
-
-	if (connect_addr && listen) {
-		fprintf(stderr,
-			"--connect and --listen are mutually exclusive\n");
-		return 1;
-	}
-
-	if (listen && mntdir) {
-		fprintf(stderr,
-			"--listen and --mntdir are mutually exclusive\n");
-		return 1;
-	}
 
 	if (znr.verbose)
 		znr_verbose("Verbose mode enabled\n");
