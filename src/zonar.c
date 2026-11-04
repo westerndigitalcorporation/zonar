@@ -251,14 +251,17 @@ int main(int argc, char **argv)
 	/* Run GUI locally. */
 	znr_print_info();
 	ret = znr_gui_run();
+	if (ret)
+		fprintf(stderr, "GUI setup failed with %d\n", ret);
 
 	znr_close();
 out:
-	znr_net_disconnect(&znr.ncli);
-	if (ret)
-		return 1;
-	if (znr.pid)
+	if (znr.pid) {
+		znr_net_shutdown(&znr.ncli);
 		return znr_waitpid(znr.pid);
+	} else {
+		znr_net_disconnect(&znr.ncli);
+	}
 
-	return 0;
+	return ret;
 }
