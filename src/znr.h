@@ -82,4 +82,7 @@ int znr_gui_run(void);
 			znr_printf(stderr, "[DBG] " format, ##args);	\
 	} while (0);
 
+#define znr_info(format,args...)	\
+	znr_printf(stdout, "[INFO] " format, ##args)
+
 #endif /* ZNR_H */
