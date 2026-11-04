@@ -2,7 +2,7 @@
 .\"  SPDX-FileCopyrightText: 2026, Western Digital Corporation or its affiliates.
 .\"  Written by Damien Le Moal <damien.lemoal@wdc.com>
 .\"
-.TH ZONAR 8
+.TH ZONAR_SRV 8
 .SH NAME
 zonar_srv \- zonar server to inspect a file system use of zoned devices
 
@@ -12,9 +12,21 @@ zonar_srv \- zonar server to inspect a file system use of zoned devices
 
 .SH DESCRIPTION
 .B zonar_srv
-provides a server to allow \fBzonar\fP to remotely inspect and display the use
-of the blockgroups of a zoned filesystem. \fIpath\fP must specify
-the mount directory of the file system to inspect.
+provides a server to allow \fBzonar\fP(8) to remotely inspect and display the
+use of the blockgroups of a zoned filesystem. \fIpath\fP must specify
+the mount directory of the file system to inspect, and must be specified after
+all options.
+
+By default, \fBzonar_srv\fP listens for client connections. With the
+\fR\-\-connect\fP option, \fBzonar_srv\fP instead connects to a \fBzonar\fP
+client started with the \fR\-\-listen\fP option (reverse connection mode).
+
+\fBzonar_srv\fP requires root privileges to access the device information.
+When \fBzonar\fP is used to inspect a local file system,
+\fBzonar_srv\fP is automatically started by \fBzonar\fP using
+\fBpkexec\fP(1), and does not need to be started manually.
+
+Currently \fBzonar_srv\fP supports the XFS and btrfs file systems.
 
 .SH OPTIONS
 \fBzonar_srv\fP options are as follows.
@@ -26,14 +38,16 @@ Display a command line help message and exit.
 Enable verbose mode (for debugging).
 .TP
 .BR \-\-version,\ \-V
-Display \fBzonar\fP version and exit.
+Display \fBzonar_srv\fP version and exit.
 .TP
 .BR \-\-connect,\ \-c\ \fIipaddr\fP
 Reverse connection mode: instead of waiting for a client connection, connect to
-the specified IP address.
+the client at the specified IP address.
 .TP
 .BR \-\-port,\ \-p\ \fIport\fP
-Specify the port number to connect to the server.
+Specify the port number to listen for client connections on, or to connect to
+the client on when the \fR\-\-connect\fP option is used. The default port is
+49152.
 
 .SH AUTHORS
 .nf
@@ -43,7 +57,8 @@ Damien Le Moal <damien.lemoal@wdc.com>
 .fi
 
 .SH SEE ALSO
-.BR zonar (8)
+.BR zonar (8),
+.BR pkexec (1)
 
 .SH AVAILABILITY
 The zonar application is available on GitHub
