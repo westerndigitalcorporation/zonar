@@ -109,6 +109,15 @@ AS_IF([test "x$disable_gui" != xno],
 			  	  [AC_MSG_ERROR([libadwaita not found.])])])
 AM_CONDITIONAL([GUI_ENABLED], [test "x$disable_gui" != xyes])
 
+# Polkit only reads action files from its own directory, independently of the
+# installation prefix, so default to the standard polkit actions directory.
+AC_ARG_WITH([polkit-actiondir],
+	[AS_HELP_STRING([--with-polkit-actiondir=DIR],
+		[polkit action files directory (Default: /usr/share/polkit-1/actions)])],
+	[polkitactiondir="$withval"],
+	[polkitactiondir="/usr/share/polkit-1/actions"])
+AC_SUBST([polkitactiondir])
+
 # Check if the zoned fields in struct xfs_fsop_geom actually exist. These were
 # all added around the same time, so checking for one (e.g. rtreserved) should
 # be enough.
