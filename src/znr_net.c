@@ -91,6 +91,7 @@ static int znr_net_send_req(struct znr_net_client *ncli,
 	case ZNR_NET_MNTDIR_INFO:
 	case ZNR_NET_DEV_INFO:
 	case ZNR_NET_BLOCKGROUPS:
+	case ZNR_NET_SHUTDOWN:
 		break;
 	case ZNR_NET_FILE_EXTENTS:
 		if (!params)
@@ -154,6 +155,7 @@ static int znr_net_recv_req(struct znr_net_client *ncli,
 	case ZNR_NET_DEV_INFO:
 	case ZNR_NET_FILE_EXTENTS:
 	case ZNR_NET_BLOCKGROUPS:
+	case ZNR_NET_SHUTDOWN:
 		return 0;
 	case ZNR_NET_DEV_REP_ZONES:
 		req->params.zone.zone_start =
@@ -622,6 +624,25 @@ void znr_net_disconnect(struct znr_net_client *ncli)
 	}
 }
 
+/* Disconnect and ask the server to shutdown */
+void znr_net_shutdown(struct znr_net_client *ncli)
+{
+	int ret;
+
+	if (ncli->sd > 0) {
+		printf("Disconnecting client %s:%d\n",
+		       ncli->ip, ncli->port);
+
+		ret = znr_net_send_req(ncli, ZNR_NET_SHUTDOWN, NULL);
+		if (ret)
+			znr_err("Failed to sent shutdown request to server\n");
+
+		shutdown(ncli->sd, SHUT_RDWR);
+		close(ncli->sd);
+		ncli->sd = 0;
+	}
+}
+
 int znr_net_connect(struct znr_net_client *ncli)
 {
 	int ret;
@@ -783,6 +804,11 @@ static void znr_net_server(struct znr_net_client *ncli)
 			break;
 		case ZNR_NET_REPORT_BLOCKGROUPS:
 			ret = znr_net_send_report_blockgroups(ncli, &req);
+			break;
+		case ZNR_NET_SHUTDOWN:
+			znr_info("Received shutdown request from client\n");
+			znr.abort = true;
+			ret = 0;
 			break;
 		default:
 			ret = -1;

@@ -56,6 +56,7 @@ enum znr_net_req_id {
 	ZNR_NET_EXTENTS_IN_RANGE,
 	ZNR_NET_BLOCKGROUPS,
 	ZNR_NET_REPORT_BLOCKGROUPS,
+	ZNR_NET_SHUTDOWN,
 };
 
 struct znr_net_mntdir_info {
@@ -120,6 +121,7 @@ struct znr_net_rep {
 int znr_net_connect(struct znr_net_client *ncli);
 int znr_net_listen(struct znr_net_client *ncli);
 void znr_net_disconnect(struct znr_net_client *ncli);
+void znr_net_shutdown(struct znr_net_client *ncli);
 
 void znr_net_run_server(struct znr_net_client *ncli);
 

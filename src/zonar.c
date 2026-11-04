@@ -254,11 +254,14 @@ int main(int argc, char **argv)
 
 	znr_close();
 out:
-	znr_net_disconnect(&znr.ncli);
+	if (znr.pid) {
+		znr_net_shutdown(&znr.ncli);
+		znr_waitpid(znr.pid);
+	} else {
+		znr_net_disconnect(&znr.ncli);
+	}
 	if (ret)
 		return 1;
-	if (znr.pid)
-		znr_waitpid(znr.pid);
 
 	return 0;
 }
