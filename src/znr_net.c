@@ -581,7 +581,7 @@ static int znr_net_get_port(void)
 	/* Prepare the listening socket. */
 	if (!znr.port)
 		return ZNR_NET_DEFAULT_PORT;
-	if (znr.port < 65535)
+	if (znr.port > 0 && znr.port <= 65535)
 		return znr.port;
 
 	znr_err("Invalid port %d\n", znr.port);
