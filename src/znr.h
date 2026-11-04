@@ -29,6 +29,11 @@ struct znr {
 	struct znr_net_client	ncli;
 
 	/*
+	 * Current process ID
+	 */
+	pid_t			pid;
+
+	/*
 	 * Mount directory & file system.
 	 */
 	struct znr_mnt_dir	mnt_dir;
@@ -61,6 +66,7 @@ void znr_print_info(void);
 
 int znr_gui_run(void);
 
+#define ZNR_INADDR_LOOPBACK "127.0.0.1"
 #define znr_printf(stream,format,args...)			\
 	do {							\
 		fprintf((stream), "[zonar]" format, ## args);	\
