@@ -9,6 +9,12 @@ zonar \- Show file system use of zoned devices
 .SH SYNOPSIS
 .B zonar
 [\fI\,OPTION\/\fR...] \fIpath\fP
+.br
+.B zonar
+[\fI\,OPTION\/\fR...] \fB\-\-connect\fR \fIipaddr\fP
+.br
+.B zonar
+[\fI\,OPTION\/\fR...] \fB\-\-listen\fR
 
 .SH DESCRIPTION
 .B zonar
@@ -18,7 +24,24 @@ stored in blockgroups as well as the location on the device of file extents.
 When not using the \fR\-\-connect\fP or \fR\-\-listen\fP options, \fIpath\fP
 must specify the mount directory of the file system to inspect.
 
-Currently \fBzonar\fP only supports XFS.
+Currently \fBzonar\fP supports the XFS and btrfs file systems.
+
+.SS Local mode
+When \fIpath\fP is specified, \fBzonar\fP inspects a local file system and
+should be run as a regular user. Accessing the device information requires
+root privileges, so \fBzonar\fP starts the server
+\fBzonar_srv\fP(8) as a child process using \fBpkexec\fP(1), which prompts
+for administrator authentication. Only the server runs with root privileges.
+The graphical interface communicates with the server in reverse connection
+mode on the loopback address, and the server is stopped when \fBzonar\fP exits.
+
+When the polkit action file installed with \fBzonar\fP is used, authentication
+is only allowed from an active local session. Inactive and remote sessions are
+denied.
+
+.SS Remote mode
+With the \fR\-\-connect\fP or \fR\-\-listen\fP options, \fBzonar\fP inspects
+a file system on a remote system running \fBzonar_srv\fP(8).
 
 .SH OPTIONS
 \fBzonar\fP options are as follows.
@@ -45,7 +68,22 @@ specified.
 .TP
 .BR \-\-port,\ \-p\ \fIport\fP
 Specify the port number to connect to the server or to listen for connection
-on.
+on. The default port is 49152.
+.TP
+.BR \-\-server,\ \-s\ \fIpath\fP
+Local mode only: run the server binary specified by \fIpath\fP instead of the
+installed \fBzonar_srv\fP. This is intended for development, for example to
+run a server binary from a build directory that is not installed. The polkit
+action installed with \fBzonar\fP only applies to the installed
+\fBzonar_srv\fP, so \fBpkexec\fP default authentication rules apply when this
+option is used.
+
+.SH FILES
+.TP
+.I /usr/share/polkit-1/actions/org.wdc.zonar.policy
+polkit action file defining the \fIorg.wdc.zonar.srv\fP action used to run
+\fBzonar_srv\fP in local mode. The installation directory can be changed with
+the \fR\-\-with\-polkit\-actiondir\fP configure option.
 
 .SH AUTHORS
 .nf
@@ -55,7 +93,9 @@ Damien Le Moal <damien.lemoal@wdc.com>
 .fi
 
 .SH SEE ALSO
-.BR zonar_srv (8)
+.BR zonar_srv (8),
+.BR pkexec (1),
+.BR polkit (8)
 
 .SH AVAILABILITY
 The zonar application is available on GitHub
