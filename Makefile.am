@@ -27,8 +27,10 @@ endif
 
 install-srv:
 	@echo "Installing zonar server..."
-	install -m 755 $(top_srcdir)/src/zonar_srv $(DESTDIR)${bindir}
-	install -m 644 $(top_srcdir)/man/zonar_srv.8 $(DESTDIR)${mandir}/man8
+	$(MAKE) -C src zonar_srv
+	$(MKDIR_P) "$(DESTDIR)$(bindir)" "$(DESTDIR)$(mandir)/man8"
+	$(INSTALL_PROGRAM) $(top_builddir)/src/zonar_srv "$(DESTDIR)$(bindir)"
+	$(INSTALL_DATA) $(top_srcdir)/man/zonar_srv.8 "$(DESTDIR)$(mandir)/man8"
 
 CLEANFILES = *.rpm *.tar.gz zonar zonar_srv data/org.wdc.zonar.policy
 DISTCLEANFILES = ${CLEANFILES} configure *~ *.*~ src/*.*~
