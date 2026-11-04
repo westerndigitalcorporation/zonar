@@ -44,7 +44,10 @@ zonar_SOURCES = \
 	${BTRFS_SOURCES} \
 	zonar.c
 
-zonar_CFLAGS = -D_GNU_SOURCE $(AM_CFLAGS) $(GTK_CFLAGS) $(LIBADWAITA_CFLAGS)
+# ZONAR_SRV_PATH is the zonar_srv path the GUI passes to pkexec. It must match
+# the exec.path annotation of the polkit policy for the policy to apply.
+zonar_CFLAGS = -D_GNU_SOURCE $(AM_CFLAGS) $(GTK_CFLAGS) $(LIBADWAITA_CFLAGS) \
+	       -DZONAR_SRV_PATH=\"$(bindir)/zonar_srv\"
 zonar_LDADD = $(GTK_LIBS) $(LIBADWAITA_LIBS) -lm
 
 endif

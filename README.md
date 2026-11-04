@@ -36,7 +36,8 @@ garbage collection occurs towards the end.
 - Linux kernel with zoned block device support
 - XFS filesystem with zoned storage support (kernel v6.15 and above)
 - Root privileges (required for accessing the block devices and file system
-  information)
+  information). When running locally, only the Zonar server is run with root
+  privileges, using polkit (*pkexec*). See [Local Mode](#local-mode).
 
 ### Build Dependencies
 
@@ -49,6 +50,7 @@ files.
 - **GLib 2.0**: Core application building blocks
 - **Math library**: For mathematical operations
 - **xfsprogs development headers**: Version 6.15 and above
+- **polkit**: Runtime only, provides *pkexec* for running Zonar locally
 
 Zonar server can optionally be built independently without these requirements.
 
@@ -140,13 +142,53 @@ $ sudo make install-srv
 If the build was configured with zonar GUI disabled, the regular *make install*
 can also be used but will be limited to just installing *zonar_srv*.
 
-## Usage
+When the GUI is enabled, *make install* also installs the polkit action file
+*org.wdc.zonar.policy* into */usr/share/polkit-1/actions*. This file defines
+the *org.wdc.zonar.srv* polkit action, which is used when running Zonar locally
+(see [Local Mode](#local-mode)) and applies to the installed *zonar_srv* binary
+(*$(bindir)/zonar_srv*).
 
-To run Zonar GUI to inspect a local file system, simply run:
+Polkit only reads actions from its own actions directory, so the action file is
+installed there regardless of the installation *--prefix*. For systems where
+polkit uses a different directory, or for installations without root
+privileges, the directory can be changed with the *--with-polkit-actiondir*
+configure option:
 
 ```bash
-$ sudo zonar /mnt
+$ ./configure --with-polkit-actiondir=/path/to/polkit-1/actions
 ```
+
+## Usage
+
+### Local Mode
+
+To run Zonar GUI to inspect a local file system, simply run as a regular user:
+
+```bash
+$ zonar /mnt
+```
+
+The GUI does not run as root. Instead, Zonar starts the server (*zonar_srv*)
+as a child process using *pkexec*, which prompts for administrator
+authentication. Only the server runs with root privileges, and the GUI
+communicates with it over the network protocol in reverse connection mode on
+the loopback interface. The server is stopped when the GUI exits.
+
+With the installed polkit action, authentication is only allowed from an active
+local session. Inactive and remote (e.g. SSH) sessions are denied.
+
+For development, the `--server` option can be used to run a Zonar server binary
+that is not installed, for example from the build directory:
+
+```bash
+$ ./src/zonar --server ./src/zonar_srv /mnt
+```
+
+Note that the polkit action only applies to the installed *zonar_srv*. When
+using `--server`, *pkexec* uses its default action and authentication rules
+instead.
+
+### Remote Mode
 
 To inspect a file system on a remote machine (or on a VM), run Zonar server
 daemon on the remote system or the VM owning the mounted file system:
@@ -196,10 +238,12 @@ $ zonar --help
 Options:
   -v, --verbose            Enable verbose output
   -V, --version            Display version information and exit
-  -s, --connect <IP>       Connect to the specified server IP address
+  -c, --connect <IP>       Connect to the specified server IP address
   -p, --port <port>        Specify the server connection port
   -l, --listen             Reverse connection mode: wait for a server to
                            connect
+  -s, --server <path>      Local mode only: path to a Zonar server binary to
+                           run instead of the installed zonar_srv
 ```
 
 Zonar server daemon (*zonar_srv*) accepts the following options.
@@ -279,6 +323,8 @@ The network protocol uses a custom binary format over TCP:
   - `ZNR_NET_BLOCKGROUPS`: Get the blockgroups of the mounted filesystem
   - `ZNR_NET_REPORT_BLOCKGROUPS`: A blockgroup report updates the blockgroups
                                   information from the filesystem.
+  - `ZNR_NET_SHUTDOWN`: Request the server to shut down (used in local mode
+                        when the GUI exits)
 
 - **Data Format**: All multi-byte integers are transmitted in network byte order
                    (big-endian)
