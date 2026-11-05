@@ -48,6 +48,11 @@ the client at the specified IP address.
 Specify the port number to listen for client connections on, or to connect to
 the client on when the \fR\-\-connect\fP option is used. The default port is
 49152.
+.TP
+.BR \-\-owned,\ \-o
+Exit when the parent process exits. This option is used by \fBzonar\fP when
+starting \fBzonar_srv\fP in local mode, and is not intended to be used
+directly.
 
 .SH AUTHORS
 .nf

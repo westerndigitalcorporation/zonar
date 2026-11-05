@@ -10,6 +10,7 @@
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
+#include <sys/prctl.h>
 
 #include "znr.h"
 
@@ -30,13 +31,16 @@ static void zonar_srv_usage(char *cmd)
 	printf("  --port | -p <port>      : Specify connection port number\n");
 	printf("                            Default: %d\n",
 	       ZNR_NET_DEFAULT_PORT);
+	printf("  --owned | -o            : Exit when the parent process exits\n");
 }
 
 int main(int argc, char **argv)
 {
 	char *mntdir = NULL;
 	struct sigaction act;
+	bool owned = false;
 	int ret, i;
+	pid_t parent_pid;
 
 	/* By default: listen for connections. */
 	znr_init();
@@ -93,6 +97,12 @@ int main(int argc, char **argv)
 			continue;
 		}
 
+		if (strcmp(argv[i], "--owned") == 0 ||
+		    strcmp(argv[i], "-o") == 0) {
+			owned = true;
+			continue;
+		}
+
 		if (strcmp(argv[i], "--connect") == 0 ||
 		    strcmp(argv[i], "-c") == 0) {
 			i++;
@@ -121,6 +131,26 @@ int main(int argc, char **argv)
 	}
 
 	mntdir = argv[i];
+
+	/*
+	 * The server may be run as a root child process of the GUI, in which
+	 * case the user GUI process cannot send signals to us on an abrupt
+	 * exit. For such cases, ask the kernel to signal us when the parent
+	 * dies.
+	 */
+	if (owned) {
+		parent_pid = getppid();
+		if (prctl(PR_SET_PDEATHSIG, SIGTERM) == -1) {
+			znr_err("prctl failed (%s)\n", strerror(errno));
+			return 1;
+		}
+
+		/* parent died before we setup prctl() */
+		if (getppid() != parent_pid) {
+			znr_err("Parent process exited\n");
+			return 1;
+		}
+	}
 
 	if (znr.verbose)
 		printf("Verbose mode enabled\n");
