@@ -74,6 +74,7 @@ int znr_pkexec(const char* srv, char *mntdir)
 		args[argc++] = "pkexec";
 		args[argc++] = rsrv;
 
+		args[argc++] = "-o";
 		if (znr.verbose)
 			args[argc++] = "-v";
 
