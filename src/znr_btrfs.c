@@ -92,7 +92,7 @@ static int znr_btrfs_tree_search(int fd, uint64_t tree_id,
 
 	args = malloc(sizeof(*args) + BTRFS_SEARCH_BUF_SIZE);
 	if (!args) {
-		fprintf(stderr, "No memory for btrfs tree search\n");
+		znr_err("No memory for btrfs tree search\n");
 		return -ENOMEM;
 	}
 
@@ -120,7 +120,7 @@ static int znr_btrfs_tree_search(int fd, uint64_t tree_id,
 		sk->nr_items = 4096;
 
 		if (ioctl(fd, BTRFS_IOC_TREE_SEARCH_V2, args) < 0) {
-			fprintf(stderr, "btrfs tree search (tree %llu) failed (%s)\n",
+			znr_err("btrfs tree search (tree %llu) failed (%s)\n",
 				(unsigned long long)tree_id, strerror(errno));
 			ret = -errno;
 			goto out;
@@ -294,7 +294,7 @@ static int znr_btrfs_find_devid(int fd)
 
 	memset(&fi, 0, sizeof(fi));
 	if (ioctl(fd, BTRFS_IOC_FS_INFO, &fi) < 0) {
-		fprintf(stderr, "btrfs fs info failed (%s)\n", strerror(errno));
+		znr_err("btrfs fs info failed (%s)\n", strerror(errno));
 		return -errno;
 	}
 
@@ -323,7 +323,7 @@ static int znr_btrfs_find_devid(int fd)
 		}
 	}
 
-	fprintf(stderr, "Could not find btrfs device id for %s\n",
+	znr_err("Could not find btrfs device id for %s\n",
 		znr.dev_path);
 	return -ENODEV;
 }
@@ -650,7 +650,7 @@ static int znr_btrfs_get_file_extents(struct znr_fs_file *f,
 	lookup.treeid = 0;
 	lookup.objectid = f->ino;
 	if (ioctl(f->fd, BTRFS_IOC_INO_LOOKUP, &lookup) < 0) {
-		fprintf(stderr, "btrfs inode lookup for %s failed (%s)\n",
+		znr_err("btrfs inode lookup for %s failed (%s)\n",
 			f->path, strerror(errno));
 		return -errno;
 	}

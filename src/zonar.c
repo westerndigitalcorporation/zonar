@@ -95,7 +95,7 @@ int znr_pkexec(const char* srv, char *mntdir)
 
 		/* returns only on error */
 		execvp("pkexec", args);
-		perror("execvp");
+		znr_err("Failed to execute pkexec (%s)\n", strerror(errno));
 		_exit(127);
 	}
 
@@ -112,36 +112,32 @@ static int znr_validate_args(const char *connect_addr, bool listen,
 			     const char *mntdir, const char *srvpath, int port)
 {
 	if (connect_addr && mntdir) {
-		fprintf(stderr,
-			"--connect and --mntdir are mutually exclusive\n");
+		znr_err("--connect and --mntdir are mutually exclusive\n");
 		return -1;
 	}
 
 	if (connect_addr && listen) {
-		fprintf(stderr,
-			"--connect and --listen are mutually exclusive\n");
+		znr_err("--connect and --listen are mutually exclusive\n");
 		return -1;
 	}
 
 	if (listen && mntdir) {
-		fprintf(stderr,
-			"--listen and --mntdir are mutually exclusive\n");
+		znr_err("--listen and --mntdir are mutually exclusive\n");
 		return -1;
 	}
 
 	if (srvpath && (connect_addr || listen)) {
-		fprintf(stderr,
-			"--server cannot be used with --connect or --listen\n");
+		znr_err("--server cannot be used with --connect or --listen\n");
 		return -1;
 	}
 
 	if (srvpath && !*srvpath) {
-		fprintf(stderr, "Invalid empty --server path\n");
+		znr_err("Invalid empty --server path\n");
 		return -1;
 	}
 
 	if (port < 0 || port > 65535) {
-		fprintf(stderr, "Invalid port %d\n", port);
+		znr_err("Invalid port %d\n", port);
 		return -1;
 	}
 
@@ -206,7 +202,7 @@ int main(int argc, char **argv)
 	context = g_option_context_new("[<mntdir>]");
 	g_option_context_add_main_entries(context, options, NULL);
 	if (!g_option_context_parse(context, &argc, &argv, &error)) {
-		fprintf(stderr, "Option parsing failed: %s\n", error->message);
+		znr_err("Option parsing failed: %s\n", error->message);
 		exit(1);
 	}
 
@@ -226,18 +222,18 @@ int main(int argc, char **argv)
 
 	if (!znr.is_net_client) {
 		if (argc < 2) {
-			fprintf(stderr, "No mount directory specified\n");
+			znr_err("No mount directory specified\n");
 			return 1;
 		}
 
 		if (argc != 2) {
-			fprintf(stderr, "Invalid command line\n");
+			znr_err("Invalid command line\n");
 			return 1;
 		}
 
 		mntdir = argv[1];
 	} else if (argc != 1) {
-		fprintf(stderr, "Invalid command line\n");
+		znr_err("Invalid command line\n");
 		return 1;
 	}
 
@@ -270,7 +266,7 @@ int main(int argc, char **argv)
 
 	ret = znr_open(mntdir);
 	if (ret) {
-		fprintf(stderr, "Failed to open device\n");
+		znr_err("Failed to open device\n");
 		goto out;
 	}
 

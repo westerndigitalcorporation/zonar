@@ -85,13 +85,13 @@ int main(int argc, char **argv)
 		    strcmp(argv[i], "-p") == 0) {
 			i++;
 			if (i >= argc - 1) {
-				fprintf(stderr, "Invalid command line\n");
+				znr_err("Invalid command line\n");
 				return 1;
 			}
 
 			znr.port = atoi(argv[i]);
 			if (znr.port <= 0) {
-				fprintf(stderr, "Invalid port\n");
+				znr_err("Invalid port\n");
 				return 1;
 			}
 			continue;
@@ -107,7 +107,7 @@ int main(int argc, char **argv)
 		    strcmp(argv[i], "-c") == 0) {
 			i++;
 			if (i >= argc - 1) {
-				fprintf(stderr, "Invalid command line\n");
+				znr_err("Invalid command line\n");
 				return 1;
 			}
 
@@ -118,7 +118,7 @@ int main(int argc, char **argv)
 		}
 
 		if (argv[i][0] == '-') {
-			fprintf(stderr, "Invalid option %s\n", argv[i]);
+			znr_err("Invalid option %s\n", argv[i]);
 			return 1;
 		}
 
@@ -152,8 +152,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (znr.verbose)
-		printf("Verbose mode enabled\n");
+	znr_verbose("Verbose mode enabled\n");
 
 	ret = znr_open(mntdir);
 	if (ret)
