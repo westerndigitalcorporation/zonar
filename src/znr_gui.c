@@ -247,8 +247,7 @@ static char *znr_gui_extent_info(struct znr_extent *extents,
 	buf_size = 400 + (nr_extents + 1) * ZNR_FS_EXT_INFO_SIZE;
 	buf = calloc(1, buf_size);
 	if (!buf) {
-		fprintf(stderr,
-			"Failed to allocate memory for extent info\n");
+		znr_err("Failed to allocate memory for extent info\n");
 		return NULL;
 	}
 
@@ -276,8 +275,7 @@ static char *znr_gui_extent_info(struct znr_extent *extents,
 	for (i = 0; i < nr_extents; i++) {
 		len = strlen(extents[i].info);
 		if (len > buf_size - buf_offset) {
-			fprintf(stderr,
-				"Extent information buffer overflow\n");
+			znr_err("Extent information buffer overflow\n");
 			goto out_err;
 		}
 
@@ -307,13 +305,13 @@ static int znr_gui_report_bgs(unsigned int bg_start, unsigned int nr_bgs)
 	ret = znr_bg_refresh(&znr.dev, znr.blk_zones, znr.nr_zones,
 			     znr.bgs, bg_start, nr_bgs);
 	if (ret < 0) {
-		fprintf(stderr, "Get blockgroup information failed %d (%s)\n",
+		znr_err("Get blockgroup information failed %d (%s)\n",
 			errno, strerror(errno));
 		return ret;
 	}
 
 	if ((unsigned int)ret != nr_bgs) {
-		fprintf(stderr, "Got %d blockgroups, expected %u blockgroups\n",
+		znr_err("Got %d blockgroups, expected %u blockgroups\n",
 			ret, nr_bgs);
 		return -EIO;
 	}
@@ -1234,7 +1232,7 @@ static gboolean znr_gui_refresh_local_cb(gpointer user_data)
 		znr_gui_err("Failed to refresh local blockgroups\n", NULL);
 
 	if (znrg.visible_bgs_no > znr.nr_bgs) {
-		fprintf(stderr, "Invalid visible blockgroups number: %lld\n",
+		znr_err("Invalid visible blockgroups number: %lld\n",
 			znrg.visible_bgs_no);
 		return G_SOURCE_REMOVE;
 	}
@@ -1283,7 +1281,7 @@ static void znr_gui_refresh_cb(GtkWidget *widget __attribute__((unused)),
 
 	bg_rep = calloc(1, sizeof(struct znr_gui_bg_report_info));
         if (!bg_rep) {
-                fprintf(stderr, "Out of memory for blockgroup report\n");
+                znr_err("Out of memory for blockgroup report\n");
                 return;
         }
 
@@ -1367,7 +1365,7 @@ static void znr_gui_search_file_cb(GtkWidget *button, gpointer user_data)
 
 	bg_rep = calloc(1, sizeof(struct znr_gui_bg_report_info));
 	if (!bg_rep) {
-                fprintf(stderr, "Out of memory for blockgroup report\n");
+                znr_err("Out of memory for blockgroup report\n");
                 return;
         }
 
@@ -1915,18 +1913,20 @@ static void znr_gui_set_signal_handlers(GtkApplication *app)
 
 	ret = pipe(znrg.sig_pipe);
 	if (ret < 0) {
-		perror("pipe");
+		znr_err("pipe failed (%s)\n", strerror(errno));
 		exit(1);
 	}
 
 	fd_flags = fcntl(znrg.sig_pipe[1], F_GETFL);
 	if (fd_flags < 0) {
-		perror("Read descriptor flags");
+		znr_err("Read descriptor flags failed (%s)\n",
+			strerror(errno));
 		exit(1);
 	}
 	ret = fcntl(znrg.sig_pipe[1], F_SETFL, fd_flags | O_NONBLOCK);
 	if (ret < 0) {
-		perror("Write descriptor flags");
+		znr_err("Write descriptor flags failed (%s)\n",
+			strerror(errno));
 		exit(1);
 	}
 

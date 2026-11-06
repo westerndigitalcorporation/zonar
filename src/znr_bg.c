@@ -70,14 +70,14 @@ static int znr_bg_get_zone_mapping(struct znr_blockgroup *bg,
 	bg->zones =
 		calloc(max_zones_per_bg, sizeof(struct blk_zone *));
 	if (!bg->zones) {
-		fprintf(stderr, "No memory for blockgroup zone array\n");
+		znr_err("No memory for blockgroup zone array\n");
 		return -ENOMEM;
 	}
 
 	bg_zone_idx = 0;
 	for (j = 0; j < max_zones_per_bg; j++) {
 		if (start_zno + j >= nr_zones) {
-			fprintf(stderr, "Invalid zone index in blockgroup [%u/%u]\n",
+			znr_err("Invalid zone index in blockgroup [%u/%u]\n",
 				start_zno + j, nr_zones);
 			free(bg->zones);
 			bg->zones = NULL;
@@ -88,7 +88,7 @@ static int znr_bg_get_zone_mapping(struct znr_blockgroup *bg,
 	}
 
 	if (!bg_zone_idx) {
-		fprintf(stderr, "No zones in blockgroup\n");
+		znr_err("No zones in blockgroup\n");
 		free(bg->zones);
 		bg->zones = NULL;
 		return -EINVAL;
@@ -167,7 +167,7 @@ static int znr_bg_to_zno(struct znr_device *dev,
 		dev->zone_sectors;
 
 	if (end_zone_no > dev->nr_zones) {
-		fprintf(stderr, "Invalid zone in blockgroup\n");
+		znr_err("Invalid zone in blockgroup\n");
 		return -EINVAL;
 	}
 
@@ -201,7 +201,7 @@ static int znr_bg_report(struct znr_device *dev, struct blk_zone *zones,
 		max_sector = bgs[nr_bgs - 1].sector +
 			bgs[nr_bgs - 1].nr_sectors;
 		if (max_sector > dev->nr_sectors) {
-			fprintf(stderr, "Sector out of bounds: sector: %lld | max: %lld\n",
+			znr_err("Sector out of bounds: sector: %lld | max: %lld\n",
 				max_sector, dev->nr_sectors);
 			return -EINVAL;
 		}

@@ -47,7 +47,7 @@ int znr_open(const char *mntdir)
 
 	znr.nr_zones = znr.dev.nr_zones;
 	if (znr.dev.is_zoned && !znr.nr_zones) {
-		fprintf(stderr, "%s: No zones reported\n",
+		znr_err("%s: No zones reported\n",
 			znr.dev.devname);
 		ret = -EINVAL;
 		goto err;
@@ -60,7 +60,7 @@ int znr_open(const char *mntdir)
 
 	ret = znr_bg_get_blockgroups(&znr.bgs, &znr.nr_bgs);
 	if (ret < 0) {
-		fprintf(stderr, "Failed to get blockgroups\n");
+		znr_err("Failed to get blockgroups\n");
 		goto err;
 	}
 
@@ -68,14 +68,13 @@ int znr_open(const char *mntdir)
 		ret = znr_dev_report_zones(&znr.dev, 0,
 					   znr.blk_zones, znr.nr_zones);
 		if (ret < 0) {
-			fprintf(stderr, "%s: znr_dev_report_zones failed %d\n",
+			znr_err("%s: znr_dev_report_zones failed %d\n",
 				znr.dev.devname, ret);
 			goto err;
 		}
 
 		if ((unsigned int)ret != znr.nr_zones) {
-			fprintf(stderr,
-				"%s: Got %d zones, expected %u reported\n",
+			znr_err("%s: Got %d zones, expected %u reported\n",
 				znr.dev.devname, ret, znr.nr_zones);
 			ret = -EINVAL;
 			goto err;
@@ -92,13 +91,12 @@ int znr_open(const char *mntdir)
 	ret = znr_bg_refresh(&znr.dev, znr.blk_zones, znr.nr_zones,
 			     znr.bgs, 0, znr.nr_bgs);
 	if (ret < 0) {
-		fprintf(stderr, "Failed to report block groups: %d\n", ret);
+		znr_err("Failed to report block groups: %d\n", ret);
 		goto err;
 	}
 
 	if ((unsigned int)ret != znr.nr_bgs) {
-		fprintf(stderr,
-			"%s: Got %d blockgroups, expected %u reported\n",
+		znr_err("%s: Got %d blockgroups, expected %u reported\n",
 			znr.dev.devname, ret, znr.nr_bgs);
 		ret = -EINVAL;
 		goto err;

@@ -49,7 +49,7 @@ static int znr_fs_get_file_fs(struct znr_fs_file *f)
 	struct statfs stf;
 
 	if (statfs(f->path, &stf) < 0) {
-		fprintf(stderr, "Statfs %s failed %d (%s)\n",
+		znr_err("Statfs %s failed %d (%s)\n",
 			f->path, errno, strerror(errno));
 		return -errno;
 	}
@@ -66,7 +66,7 @@ static int znr_fs_get_file_fs(struct znr_fs_file *f)
 		break;
 #endif
 	default:
-		fprintf(stderr, "%s: unsupported file system\n", f->path);
+		znr_err("%s: unsupported file system\n", f->path);
 		return -ENOTSUP;
 	}
 
@@ -118,7 +118,7 @@ static int znr_fs_open_file(struct znr_fs_file *f, bool mnt_restricted)
 				    &how, sizeof(how));
 		if (f->fd < 0) {
 			if (errno != ENOENT)
-				fprintf(stderr, "Openat2 %s failed %d (%s)\n",
+				znr_err("Openat2 %s failed %d (%s)\n",
 					f->path, errno, strerror(errno));
 			return -errno;
 		}
@@ -127,7 +127,7 @@ static int znr_fs_open_file(struct znr_fs_file *f, bool mnt_restricted)
 		f->relative_path = NULL;
 		f->fd = open(f->path, O_RDONLY);
 		if (f->fd < 0) {
-			fprintf(stderr, "Open %s failed %d (%s)\n",
+			znr_err("Open %s failed %d (%s)\n",
 				f->path, errno, strerror(errno));
 			return -errno;
 		}
@@ -135,11 +135,11 @@ static int znr_fs_open_file(struct znr_fs_file *f, bool mnt_restricted)
 
 	if (fstat(f->fd, &st) < 0) {
 		if (mnt_restricted)
-			fprintf(stderr, "Stat file path %s/%s failed %d (%s)\n",
+			znr_err("Stat file path %s/%s failed %d (%s)\n",
 				znr.mnt_dir.f.path, f->path,
 				errno, strerror(errno));
 		else
-			fprintf(stderr, "Stat file path %s failed %d (%s)\n",
+			znr_err("Stat file path %s failed %d (%s)\n",
 				f->path, errno, strerror(errno));
 		return -errno;
 	}
@@ -153,8 +153,7 @@ static int znr_fs_open_file(struct znr_fs_file *f, bool mnt_restricted)
 		goto close;
 
 	if (f->fs != znr.mnt_dir.f.fs) {
-		fprintf(stderr,
-			"File %s is not on the same file system as %s\n",
+		znr_err("File %s is not on the same file system as %s\n",
 			f->path, znr.mnt_dir.f.path);
 		ret = -EINVAL;
 		goto close;
@@ -179,7 +178,7 @@ static int znr_fs_get_file_extents(struct znr_fs_file *f,
 		return ret;
 
 	if ((f->mode & S_IFMT) != S_IFREG) {
-		fprintf(stderr, "%s is not a regular file\n", f->path);
+		znr_err("%s is not a regular file\n", f->path);
 		ret = -EINVAL;
 		goto close;
 	}
@@ -324,7 +323,7 @@ int znr_fs_get_file_extents_by_ino(unsigned long long ino,
 				   struct znr_extent **extents,
 				   unsigned int *nr_extents)
 {
-	fprintf(stderr, "Getting files by inode number is not supported yet\n");
+	znr_err("Getting files by inode number is not supported yet\n");
 
 	*file = NULL;
 	*extents = NULL;
@@ -382,13 +381,13 @@ int znr_fs_open(const char *path)
 
 	/* Check path is a directory */
 	if (stat(path, &st) < 0) {
-		fprintf(stderr, "Stat path %s failed %d (%s)\n",
+		znr_err("Stat path %s failed %d (%s)\n",
 			path, errno, strerror(errno));
 		return -EINVAL;
 	}
 
 	if ((st.st_mode & S_IFMT) != S_IFDIR) {
-		fprintf(stderr, "Path %s is not a directory\n", path);
+		znr_err("Path %s is not a directory\n", path);
 		return -EINVAL;
 	}
 
@@ -398,7 +397,7 @@ int znr_fs_open(const char *path)
 	 */
 	rpath = realpath(path, NULL);
 	if (!rpath) {
-		fprintf(stderr, "Failed to resolve path %s (%s)\n",
+		znr_err("Failed to resolve path %s (%s)\n",
 			path, strerror(errno));
 		return -errno;
 	}
@@ -406,7 +405,7 @@ int znr_fs_open(const char *path)
 	/* Search mount directory */
 	mtab = setmntent("/etc/mtab", "r");
 	if (!mtab) {
-		fprintf(stderr, "Failed to open /etc/mtab (%s)\n",
+		znr_err("Failed to open /etc/mtab (%s)\n",
 			strerror(errno));
 		free(rpath);
 		return -errno;
@@ -422,7 +421,7 @@ int znr_fs_open(const char *path)
 	}
 
 	if (!mnt) {
-		fprintf(stderr, "Directory %s is not a mount directory\n",
+		znr_err("Directory %s is not a mount directory\n",
 			rpath);
 		ret = -EINVAL;
 		goto end;
@@ -430,14 +429,14 @@ int znr_fs_open(const char *path)
 
 	/* Check mount device */
 	if (stat(mnt->mnt_fsname, &st) < 0) {
-		fprintf(stderr, "Stat path %s failed %d (%s)\n",
+		znr_err("Stat path %s failed %d (%s)\n",
 			mnt->mnt_fsname, errno, strerror(errno));
 		ret = -EINVAL;
 		goto end;
 	}
 
 	if ((st.st_mode & S_IFMT) != S_IFBLK) {
-		fprintf(stderr, "%s is not a block device\n",
+		znr_err("%s is not a block device\n",
 			mnt->mnt_fsname);
 		ret = -EINVAL;
 		goto end;
@@ -445,13 +444,13 @@ int znr_fs_open(const char *path)
 
 	ret = asprintf(&znr.mnt_dir.f.path, "%s", mnt->mnt_dir);
 	if (ret < 0) {
-		fprintf(stderr, "Initialization failed\n");
+		znr_err("Initialization failed\n");
 		goto end;
 	}
 
 	ret = asprintf(&znr.dev_path, "%s", mnt->mnt_fsname);
 	if (ret < 0) {
-		fprintf(stderr, "Initialization failed\n");
+		znr_err("Initialization failed\n");
 		free(znr.mnt_dir.f.path);
 		znr.mnt_dir.f.path = NULL;
 		goto end;
