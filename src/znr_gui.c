@@ -1905,7 +1905,7 @@ static void znr_gui_sig_handler(int sig)
 {
 	/* Propagate signal through the pipe */
 	if (write(znrg.sig_pipe[1], &sig, sizeof(int)) < 0)
-		printf("Signal %d processing failed\n", sig);
+		znr_err("Signal %d processing failed\n", sig);
 }
 
 static void znr_gui_set_signal_handlers(GtkApplication *app)
