@@ -67,10 +67,19 @@ void znr_print_info(void);
 int znr_gui_run(void);
 
 #define ZNR_INADDR_LOOPBACK "127.0.0.1"
-#define znr_printf(stream,format,args...)			\
-	do {							\
-		fprintf((stream), "[zonar]" format, ## args);	\
-		fflush(stream);					\
+#define znr_printf(stream,format,args...)				\
+	do {								\
+		/*							\
+		 * Check for the server first because the client (GUI)	\
+		 * may not have been set yet (if we are too early).	\
+		 */							\
+		if (znr.is_net_server)					\
+			fprintf((stream),				\
+				"[znr_srv]" format, ## args);		\
+		else							\
+			fprintf((stream),				\
+				"[znr_gui]" format, ## args);		\
+		fflush(stream);						\
 	} while (0)
 
 #define znr_err(format,args...)	\
