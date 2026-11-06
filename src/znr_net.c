@@ -488,7 +488,7 @@ static int znr_net_send_blockgroups(struct znr_net_client *ncli,
 
 	ret = znr_bg_get_blockgroups(&bg, &nr_bgs);
 	if (ret < 0) {
-		fprintf(stderr, "Failed to get blockgroups\n");
+		znr_err("Failed to get blockgroups\n");
 		err = ret;
 		goto err_reply;
 	}
@@ -617,7 +617,7 @@ void znr_net_disconnect(struct znr_net_client *ncli)
 	if (ncli->sd <= 0)
 		return;
 
-	printf("Disconnecting client %s:%d\n", ncli->ip, ncli->port);
+	znr_info("Disconnecting client %s:%d\n", ncli->ip, ncli->port);
 
 	shutdown(ncli->sd, SHUT_RDWR);
 	close(ncli->sd);
@@ -632,8 +632,7 @@ void znr_net_shutdown(struct znr_net_client *ncli)
 	if (ncli->sd <= 0)
 		return;
 
-	printf("Disconnecting client %s:%d\n",
-			ncli->ip, ncli->port);
+	znr_info("Disconnecting client %s:%d\n", ncli->ip, ncli->port);
 
 	ret = znr_net_send_req(ncli, ZNR_NET_SHUTDOWN, NULL);
 	if (ret)
@@ -672,8 +671,8 @@ int znr_net_connect(struct znr_net_client *ncli)
 		return -errno;
 	}
 
-	printf("Connecting to %s:%d...\n",
-	       ncli->ip, (int)ncli->port);
+	znr_info("Connecting to %s:%d...\n",
+	         ncli->ip, (int)ncli->port);
 
 	ret = connect(ncli->sd,
 		      (struct sockaddr *) &ncli->inaddr,
@@ -739,8 +738,8 @@ int znr_net_listen(struct znr_net_client *ncli)
 			goto close;
 		}
 
-		printf("Listening for connections on port %d...\n",
-		       znr.listen_port);
+		znr_info("Listening for connections on port %d...\n",
+		         znr.listen_port);
 	}
 
 	znr_net_client_init(ncli);
@@ -760,7 +759,7 @@ int znr_net_listen(struct znr_net_client *ncli)
 
 	znr_net_setsockopt(ncli);
 
-	printf("Connection from %s:%d\n", ncli->ip, ncli->port);
+	znr_info("Connection from %s:%d\n", ncli->ip, ncli->port);
 
 	return 0;
 
@@ -775,8 +774,8 @@ static void znr_net_server(struct znr_net_client *ncli)
 	struct znr_net_req req;
 	int ret = 0;
 
-	printf("Waiting for client %s:%d requests\n",
-	       ncli->ip, ncli->port);
+	znr_info("Waiting for client %s:%d requests\n",
+	         ncli->ip, ncli->port);
 
 	while (!znr.abort && !ret) {
 		/* Get a request */
@@ -1216,12 +1215,12 @@ int znr_net_get_blockgroups(struct znr_net_client *ncli,
 	ret = znr_net_recv_rep(ncli, ZNR_NET_BLOCKGROUPS, &err,
 			       &data, &data_size);
 	if (ret) {
-		fprintf(stderr, "Get number of blockgroups failed\n");
+		znr_err("Get number of blockgroups failed\n");
 		return ret;
 	}
 
 	if (data_size != sizeof(*nr_bgs)) {
-		fprintf(stderr, "Number of blockgroups, receive error\n");
+		znr_err("Number of blockgroups, receive error\n");
 		ret = -EINVAL;
 		goto free;
 	}
@@ -1235,12 +1234,12 @@ int znr_net_get_blockgroups(struct znr_net_client *ncli,
 	ret = znr_net_recv_rep(ncli, ZNR_NET_BLOCKGROUPS, &err,
 			       &data, &data_size);
 	if (ret) {
-		fprintf(stderr, "Get blockgroups information failed\n");
+		znr_err("Get blockgroups information failed\n");
 		return ret;
 	}
 
 	if (data_size != sizeof(struct znr_blockgroup) * (*nr_bgs)) {
-		fprintf(stderr, "Invalid blockgroups information received\n");
+		znr_err("Invalid blockgroups information received\n");
 		ret = -EINVAL;
 		goto free;
 	}

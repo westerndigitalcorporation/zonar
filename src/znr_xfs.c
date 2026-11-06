@@ -61,7 +61,7 @@ static int znr_xfs_get_mnt_ops(struct mntent *mnt, struct znr_fs_xfs *fs)
 		return -EINVAL;
 
 	if (fs->rt_path || fs->data_path) {
-		fprintf(stderr, "xfs device paths already exist!\n");
+		znr_err("xfs device paths already exist!\n");
 		return -EINVAL;
 	}
 
@@ -111,7 +111,7 @@ static int znr_xfs_init_fs(struct znr_fs_file *f)
 	int ret;
 
 	if (!f->mnt) {
-		fprintf(stderr, "Missing mount information\n");
+		znr_err("Missing mount information\n");
 		return -EINVAL;
 	}
 
@@ -119,7 +119,7 @@ static int znr_xfs_init_fs(struct znr_fs_file *f)
 
 	ret = ioctl(f->fd, XFS_IOC_FSGEOMETRY, &xfs->geo);
 	if (ret == -1) {
-		fprintf(stderr, "Get XFS geometry failed (%s)\n",
+		znr_err("Get XFS geometry failed (%s)\n",
 			strerror(errno));
 		return -errno;
 	}
@@ -184,8 +184,7 @@ again:
 	/* Get actual extent count using FSGETXATTR. */
 	ret = xfsctl(f->path, f->fd, FS_IOC_FSGETXATTR, &fsx);
 	if (ret < 0) {
-		fprintf(stderr,
-			"Failed to get XFS file %s attributes (%s)\n",
+		znr_err("Failed to get XFS file %s attributes (%s)\n",
 			f->path, strerror(errno));
 		return -errno;
 	}
@@ -201,8 +200,7 @@ again:
 	map_size = fsx.fsx_nextents * 2 + 1;
 	map = malloc(map_size * sizeof(*map));
 	if (!map) {
-		fprintf(stderr,
-			"Failed to allocate memory for extent query\n");
+		znr_err("Failed to allocate memory for extent query\n");
 		return -ENOMEM;
 	}
 
@@ -213,8 +211,7 @@ again:
 
 	ret = xfsctl(f->path, f->fd, XFS_IOC_GETBMAPX, map);
 	if (ret < 0) {
-		fprintf(stderr,
-			"Failed to get file %s extents map (%s)\n",
+		znr_err("Failed to get file %s extents map (%s)\n",
 			f->path, strerror(errno));
 		free(map);
 		return -errno;
@@ -225,8 +222,7 @@ again:
 		free(map);
 		retry++;
 		if (retry >= 2) {
-			fprintf(stderr,
-				"Failed to get all extents for file %s\n",
+			znr_err("Failed to get all extents for file %s\n",
 				f->path);
 			return -EIO;
 		}
@@ -282,7 +278,7 @@ static void znr_xfs_get_file_extent_from_map(struct znr_extent *extent,
 	else if (type == XFS_RG_EXTENT)
 		ag_rg = "RG";
 	else
-		fprintf(stderr, "Unknown extent type\n");
+		znr_err("Unknown extent type\n");
 
 	snprintf(extent->info, sizeof(extent->info) - 1,
 		 "<tt><b>-- Extent %u --</b>\n"
@@ -322,7 +318,7 @@ static int znr_xfs_get_file_extents(struct znr_fs_file *f,
 	/* Get file attributes to check if realtime */
 	ret = xfsctl(f->path, f->fd, XFS_IOC_FSGETXATTR, &fsx);
 	if (ret < 0) {
-		fprintf(stderr, "Failed to get file attributes: %s\n",
+		znr_err("Failed to get file attributes: %s\n",
 			strerror(errno));
 		goto out;
 	}
@@ -343,7 +339,7 @@ static int znr_xfs_get_file_extents(struct znr_fs_file *f,
 	/* Allocate extent array */
 	ext = calloc(nr_ext, sizeof(struct znr_extent));
 	if (!ext) {
-		fprintf(stderr, "Failed to allocate memory for extents\n");
+		znr_err("Failed to allocate memory for extents\n");
 		ret = -ENOMEM;
 		goto out;
 	}
@@ -410,7 +406,7 @@ static int znr_xfs_get_range_extents(unsigned long long sector,
 
 	head = malloc(fsmap_sizeof(map_size));
 	if (!head) {
-		fprintf(stderr, "No memory for FSMAP");
+		znr_err("No memory for FSMAP\n");
 		return -ENOMEM;
 	}
 
@@ -447,7 +443,7 @@ static int znr_xfs_get_range_extents(unsigned long long sector,
 	max_extents = nr_sectors * 512 / xfs->geo.blocksize;
 	ext = calloc(max_extents, sizeof(struct znr_extent));
 	if (!ext) {
-		fprintf(stderr, "No memory for extents\n");
+		znr_err("No memory for extents\n");
 		ret = -ENOMEM;
 		goto out;
 	}
@@ -459,7 +455,7 @@ static int znr_xfs_get_range_extents(unsigned long long sector,
 	while (1) {
 		ret = ioctl(znr.mnt_dir.f.fd, FS_IOC_GETFSMAP, head);
 		if (ret < 0) {
-			fprintf(stderr, "Failed to get FSMAP: (%d) - [%d] %s",
+			znr_err("Failed to get FSMAP: (%d) - [%d] %s\n",
 				ret, errno, strerror(errno));
 			ret = -EIO;
 			goto out;
@@ -470,7 +466,7 @@ static int znr_xfs_get_range_extents(unsigned long long sector,
 			map_size = head->fmh_entries;
 			new_head = realloc(head, fsmap_sizeof(map_size));
 			if (!new_head) {
-				fprintf(stderr, "No memory for FSMAP");
+				znr_err("No memory for FSMAP\n");
 				ret = -ENOMEM;
 				goto out;
 			}
@@ -525,8 +521,7 @@ static int znr_xfs_get_range_extents(unsigned long long sector,
 			}
 
 			if (nr_ext >= max_extents) {
-				fprintf(stderr,
-					"Too many extents in range %llu + %llu (max: %u)\n",
+				znr_err("Too many extents in range %llu + %llu (max: %u)\n",
 					sector, nr_sectors, max_extents);
 				ret = -EIO;
 				goto out;
@@ -614,7 +609,7 @@ static int znr_xfs_get_rg_fs_write_pointer(unsigned int rgno,
 
 	rt_geom = calloc(1, sizeof(struct xfs_rtgroup_geometry));
 	if (!rt_geom) {
-		fprintf(stderr, "Error: no memory for xfs_rtgroup_geometry\n");
+		znr_err("No memory for xfs_rtgroup_geometry\n");
 		return -ENOMEM;
 	}
 
