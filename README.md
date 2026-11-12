@@ -196,7 +196,7 @@ $ zonar --help
 Options:
   -v, --verbose            Enable verbose output
   -V, --version            Display version information and exit
-  -s, --connect <IP>       Connect to the specified server IP address
+  -c, --connect <IP>       Connect to the specified server IP address
   -p, --port <port>        Specify the server connection port
   -l, --listen             Reverse connection mode: wait for a server to
                            connect
