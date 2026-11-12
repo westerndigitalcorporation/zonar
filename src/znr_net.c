@@ -614,14 +614,14 @@ static void znr_net_setsockopt(struct znr_net_client *ncli)
 
 void znr_net_disconnect(struct znr_net_client *ncli)
 {
-	if (ncli->sd > 0) {
-		printf("Disconnecting client %s:%d\n",
-		       ncli->ip, ncli->port);
+	if (ncli->sd <= 0)
+		return;
 
-		shutdown(ncli->sd, SHUT_RDWR);
-		close(ncli->sd);
-		ncli->sd = 0;
-	}
+	printf("Disconnecting client %s:%d\n", ncli->ip, ncli->port);
+
+	shutdown(ncli->sd, SHUT_RDWR);
+	close(ncli->sd);
+	ncli->sd = 0;
 }
 
 /* Disconnect and ask the server to shutdown */
