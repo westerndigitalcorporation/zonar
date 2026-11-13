@@ -1899,6 +1899,20 @@ static gboolean znr_gui_process_signal(GIOChannel *source,
 	return FALSE;
 }
 
+static void znr_svr_exited(GPid pid, gint status, gpointer user_data)
+{
+	GtkApplication *app = user_data;
+
+	if (WIFEXITED(status)) {
+		znr_err("zonar_srv exited with status %d\n",
+			WEXITSTATUS(status));
+	} else if (WIFSIGNALED(status)) {
+		znr_err("zonar_srv terminated by signal %d\n",
+			WTERMSIG(status));
+	}
+	g_application_quit(G_APPLICATION(app));
+}
+
 static void znr_gui_sig_handler(int sig)
 {
 	/* Propagate signal through the pipe */
@@ -1945,6 +1959,9 @@ static void znr_gui_set_signal_handlers(GtkApplication *app)
 	g_io_add_watch(znrg.gio_channel,
 		       G_IO_IN | G_IO_PRI,
 		       znr_gui_process_signal, app);
+
+	if (znr.pid)
+		g_child_watch_add(znr.pid, znr_svr_exited, app);
 }
 
 int znr_gui_run(void)
