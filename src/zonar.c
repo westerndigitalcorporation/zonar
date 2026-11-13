@@ -10,6 +10,7 @@
 #include <string.h>
 #include <errno.h>
 #include <glib.h>
+#include <signal.h>
 #include <sys/wait.h>
 
 #include "znr.h"
@@ -144,6 +145,32 @@ static int znr_validate_args(const char *connect_addr, bool listen,
 	return 0;
 }
 
+static void zonar_sigcatcher(int sig)
+{
+	(void)znr_waitpid(znr.pid);
+	/* We only get here server if the server abruptly died during startup */
+	_exit(1);
+}
+
+static void znr_remove_sig(void)
+{
+	struct sigaction sa = {0};
+
+	sa.sa_handler = SIG_DFL;
+	sigemptyset(&sa.sa_mask);
+	(void)sigaction(SIGCHLD, &sa, NULL);
+}
+
+static void znr_setup_sig(void)
+{
+	struct sigaction sa = {0};
+
+	sa.sa_flags = SA_NOCLDSTOP;
+	sa.sa_handler = zonar_sigcatcher;
+	sigemptyset(&sa.sa_mask);
+	(void)sigaction(SIGCHLD, &sa, NULL);
+}
+
 int main(int argc, char **argv)
 {
 	gboolean version = FALSE;
@@ -250,6 +277,7 @@ int main(int argc, char **argv)
 	 * Note that we are just falling back to network symantics here.
 	 */
 	if (!znr.connect && !znr.listen) {
+		znr_setup_sig();
 		znr.listen = true;
 		znr.is_net_client = true;
 		ret = znr_pkexec(srvpath, mntdir);
@@ -263,6 +291,13 @@ int main(int argc, char **argv)
 		ret = znr_net_listen(&znr.ncli);
 	if (ret)
 		return ret;
+
+	/*
+	 * Connection established, the GUI will register it's own callbacks
+	 * to catch this failure. So drop it here.
+	 */
+	if (znr.pid)
+		znr_remove_sig();
 
 	ret = znr_open(mntdir);
 	if (ret) {
