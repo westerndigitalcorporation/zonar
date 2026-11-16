@@ -1182,7 +1182,9 @@ int znr_net_get_blockgroup_report(struct znr_net_client *ncli,
 		bgs->dev_zone_wp = ntohll(recv_bgs->dev_zone_wp);
 		bgs->fs_wp = ntohll(recv_bgs->fs_wp);
 		bgs->fs_device_type = ntohl(recv_bgs->fs_device_type);
-		bgs->flags = ntohl(recv_bgs->flags);
+		/* don't overwrite any local/shared flags */
+		bgs->flags = (bgs->flags & ~ZNR_BG_SHARED_FLAGS) |
+			     (ntohl(recv_bgs->flags) & ZNR_BG_SHARED_FLAGS);
 	}
 
 free:
