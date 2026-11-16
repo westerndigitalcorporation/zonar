@@ -198,8 +198,7 @@ static int znr_bg_report(struct znr_device *dev, struct blk_zone *zones,
 			return -EINVAL;
 
 		/* The last sector in this set of blockgroups. */
-		max_sector = bgs[nr_bgs - 1].sector +
-			bgs[nr_bgs - 1].nr_sectors;
+		max_sector = bgs[bg_no + nr_bgs - 1].sector;
 		if (max_sector > dev->nr_sectors) {
 			znr_err("Sector out of bounds: sector: %lld | max: %lld\n",
 				max_sector, dev->nr_sectors);
