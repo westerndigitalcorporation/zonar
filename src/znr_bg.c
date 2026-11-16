@@ -205,7 +205,8 @@ static int znr_bg_report(struct znr_device *dev, struct blk_zone *zones,
 			return -EINVAL;
 		}
 
-		ret = znr_bg_to_zno(dev, bgs, &bgs[bg_no + (nr_bgs - 1)],
+		ret = znr_bg_to_zno(dev, &bgs[bg_no],
+				    &bgs[bg_no + (nr_bgs - 1)],
 				    &start_zone_no, &last_zone_no);
 		if (ret)
 			return ret;
