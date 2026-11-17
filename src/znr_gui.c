@@ -1985,7 +1985,7 @@ int znr_gui_run(void)
 
 	/* Create the main window */
 	adw_init();
-	app = gtk_application_new("org.wdc.zonar", G_APPLICATION_DEFAULT_FLAGS);
+	app = gtk_application_new("com.wdc.zonar", G_APPLICATION_DEFAULT_FLAGS);
 	g_signal_connect(app, "activate", G_CALLBACK(znr_gui_create_app),
 			 NULL);
 

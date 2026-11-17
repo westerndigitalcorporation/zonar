@@ -143,8 +143,8 @@ If the build was configured with zonar GUI disabled, the regular *make install*
 can also be used but will be limited to just installing *zonar_srv*.
 
 When the GUI is enabled, *make install* also installs the polkit action file
-*org.wdc.zonar.policy* into */usr/share/polkit-1/actions*. This file defines
-the *org.wdc.zonar.srv* polkit action, which is used when running Zonar locally
+*com.wdc.zonar.policy* into */usr/share/polkit-1/actions*. This file defines
+the *com.wdc.zonar.srv* polkit action, which is used when running Zonar locally
 (see [Local Mode](#local-mode)) and applies to the installed *zonar_srv* binary
 (*$(bindir)/zonar_srv*).
 
