@@ -26,6 +26,15 @@ must specify the mount directory of the file system to inspect.
 
 Currently \fBzonar\fP supports the XFS and btrfs file systems.
 
+.SS Watch
+The \fIWatch\fP toggle button makes \fBzonar\fP periodically update the
+blockgroups in view. The delay between updates is set in milliseconds in the
+\fIdelay (ms)\fP entry next to the button (minimum 75ms), and must be set
+before enabling watch. The delay is the minimum time between the completion
+of an update and the start of the next one. Any open extents tabs are closed
+on each update, and clicking on a blockgroup to inspect its extents is
+disabled while watch is active.
+
 .SS Local mode
 When \fIpath\fP is specified, \fBzonar\fP inspects a local file system and
 should be run as a regular user. Accessing the device information requires

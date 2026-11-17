@@ -73,15 +73,15 @@ static const char *znr_gui_css_data =
 	"   padding: 0px;"
 	"   margin: " TOSTRING(ZNR_GUI_BLOCKGROUP_MARGIN) "px;"
 	"}"
-	/* Auto refresh toggle button active state */
-	"button.auto-refresh:checked {"
+	/* Watch toggle button active state */
+	"button.watch:checked {"
 	"   background-color: #468ee6ff;"
 	"   color: white;"
 	"}";
 
 /* GUI constants */
 #define ZNR_GUI_MAX_ZOOM_OUT		10
-#define	ZNR_GUI_MIN_REFRESH_MS		200
+#define	ZNR_GUI_WATCH_MIN_MS		25
 
 /*
  * GUI data.
@@ -109,12 +109,37 @@ struct znr_gui {
 	GtkWidget		*window;
 	GtkWidget		*legend_frame;
 	GtkWidget		*show_bg_entry;
-	GtkWidget		*refresh_ms_entry;
+	GtkWidget		*watch_ms_entry;
 	GtkWidget		*bg_status;
 	GtkWidget		*search_entry;
 	GtkWidget		*search_file;
 	GtkWidget		*grid_view;
+	GtkWidget		*watch_toggle;
 	GListStore		*bg_list;
+
+	/*
+	 * Set true if a user request refresh is pending. If set,
+	 * we don't allow the user to queue another.
+	 */
+	gboolean		refresh_pending;
+
+	/*
+	 * The minimum time to wait after a watch task completes, before
+	 * starting the next one. This does NOT guarantee that the next one
+	 * executes exactly after watch_ms. Zero if watch is disabled.
+	 */
+	unsigned int		watch_ms;
+
+	/*
+	 * The ID of the event source of delayed execution for a watch task.
+	 * If non-zero, this means a task is queued up.
+	 */
+	guint			watch_source;
+
+	/*
+	 * There's a watch task ongoing. This is checked before queueing more
+	 */
+	gboolean		watch_pending;
 
 	/*
 	 * Tracks visible blockgroup drawing areas for updates
@@ -136,14 +161,10 @@ struct znr_gui {
 	GtkWidget		*extents_dialog;
 	AdwTabView		*extents_tab_view;
 
-	/*
-	 * The GUI will do a blockgroup report for only the blockgroups in
-	 * view every refresh_ms milli-seconds.
-	 */
-	unsigned int		refresh_ms;
 };
 
 static struct znr_gui znrg;
+static GMutex znrg_io_lock;
 
 #define ZNR_TYPE_BLOCKGROUP_ITEM	znr_gui_bg_item_get_type()
 G_DECLARE_FINAL_TYPE(znr_gui_bg_item, znr_gui_bg_item,
@@ -158,6 +179,8 @@ struct _znr_gui_bg_item {
 G_DEFINE_TYPE(znr_gui_bg_item, znr_gui_bg_item, G_TYPE_OBJECT)
 
 static GtkWidget *znr_gui_create_grid(void);
+
+static gboolean znr_gui_setup_refresh_task(gpointer data);
 
 static void znr_gui_bg_item_init(struct _znr_gui_bg_item *item)
 {
@@ -301,9 +324,11 @@ static int znr_gui_report_bgs(unsigned int bg_start, unsigned int nr_bgs)
 	if (bg_start + nr_bgs > znr.nr_bgs)
 		nr_bgs = znr.nr_bgs - bg_start;
 
+	g_mutex_lock(&znrg_io_lock);
 	/* Get blockgroup information */
 	ret = znr_bg_refresh(&znr.dev, znr.blk_zones, znr.nr_zones,
 			     znr.bgs, bg_start, nr_bgs);
+	g_mutex_unlock(&znrg_io_lock);
 	if (ret < 0) {
 		znr_err("Get blockgroup information failed %d (%s)\n",
 			errno, strerror(errno));
@@ -941,7 +966,7 @@ static void znr_gui_click_bg_cb(GtkGestureClick *self, gint n_press,
 	bool bg_full;
 	int ret;
 
-	if (!gui_bg || !gui_bg->bg)
+	if (!gui_bg || !gui_bg->bg || znrg.watch_ms)
 		return;
 
 	/* If the blockgroup already has a tab, focus it. */
@@ -1215,7 +1240,7 @@ static int znr_gui_get_first_bg_in_view(unsigned int *first_bg)
 
 	/*
 	 * Add an extra row of blockgroups to be reported above the viewport,
-	 * when scrolling with auto-refresh enabled, this avoids the write
+	 * when scrolling with watch enabled, this avoids the write
 	 * pointer spontaneosly spawning on blockgroups coming into view
 	 */
 	bgs_padding = *first_bg - znrg.nr_col;
@@ -1224,54 +1249,176 @@ static int znr_gui_get_first_bg_in_view(unsigned int *first_bg)
 	return 0;
 }
 
-static gboolean znr_gui_refresh_local_cb(gpointer user_data)
+static void znr_gui_bg_refresh_done(GObject *source,
+				    GAsyncResult *res,
+				    gpointer user_data)
 {
-	unsigned int first_bg = 0;
+	GError *error = NULL;
+	gpointer data = g_task_propagate_pointer(G_TASK(res), &error);
 
-	if (znr_gui_get_first_bg_in_view(&first_bg))
-		znr_gui_err("Failed to refresh local blockgroups\n", NULL);
+	g_assert(!data);
+	g_assert(znrg.refresh_pending);
+	znrg.refresh_pending = false;
 
-	if (znrg.visible_bgs_no > znr.nr_bgs) {
-		znr_err("Invalid visible blockgroups number: %lld\n",
-			znrg.visible_bgs_no);
-		return G_SOURCE_REMOVE;
+	if (error) {
+		znr_err("gui failed to refresh error\n");
+		g_error_free(error);
+		return;
 	}
 
-	znr_gui_close_extents_dialog();
-	znr_gui_report_bgs(first_bg, znrg.visible_bgs_no);
+	znr_gui_update();
+}
+
+static inline void znr_gui_disable_watch(void)
+{
+	znrg.watch_ms = 0;
+	if (znrg.watch_source) {
+		g_source_remove(znrg.watch_source);
+		znrg.watch_source = 0;
+	}
+	if (znrg.watch_toggle)
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(znrg.watch_toggle),
+					     FALSE);
+}
+
+static void znr_gui_bg_watch_done(GObject *source,
+					GAsyncResult *res,
+					gpointer user_data)
+{
+	GError *error = NULL;
+	gpointer data = g_task_propagate_pointer(G_TASK(res), &error);
+
+	g_assert(!data);
+	g_assert(znrg.watch_pending);
+	znrg.watch_pending = false;
+
+	if (error) {
+		znr_err("gui error during watch\n");
+		g_error_free(error);
+		znr_gui_disable_watch();
+		return;
+	}
+
 	znr_gui_update();
 
-	if (znrg.refresh_ms >= ZNR_GUI_MIN_REFRESH_MS)
-		return G_SOURCE_CONTINUE;
+	/* Enqueue the next watch task, after the user specified delay */
+	if (znrg.watch_ms)
+		znrg.watch_source = g_timeout_add(znrg.watch_ms,
+						  znr_gui_setup_refresh_task,
+						  NULL);
+}
+
+static void znr_gui_bg_refresh_task(GTask *task,
+				    gpointer source_object,
+				    gpointer data,
+				    GCancellable *cancellable)
+{
+	struct znr_gui_bg_report_info *bg_rep = data;
+	int ret;
+
+	/*
+	 * If this takes a long time to return (i.e network delays), we could
+	 * be out of sync with the viewport if the user is frantically scrolling
+	 * up and down. Nothing we can do about that. We will eventually
+	 * catch up.
+	 */
+	ret = znr_gui_report_bgs(bg_rep->starting_bg, bg_rep->nr_bgs);
+	if (ret) {
+		g_task_return_new_error(task, G_IO_ERROR, G_IO_ERROR_FAILED,
+					"Failed to report blockgroups");
+		return;
+	}
+
+	g_task_return_pointer(task, NULL, NULL);
+}
+
+/*
+ * Setup a watch task, @data must be heap allocated and free-able with
+ * free().
+ */
+static gboolean znr_gui_setup_refresh_task(gpointer data)
+{
+	struct znr_gui_bg_report_info *bg_rep = data;
+	GAsyncReadyCallback done = znr_gui_bg_refresh_done;
+	unsigned int first_bg = 0;
+	GTask *task;
+
+	if (!bg_rep) {
+		znrg.watch_source = 0;
+		if (!znrg.watch_ms || znrg.watch_pending)
+			return G_SOURCE_REMOVE;
+
+		if (znr_gui_get_first_bg_in_view(&first_bg)) {
+			znr_err("Failed to refresh local blockgroups\n");
+			goto out_err;
+		}
+
+		if (znrg.visible_bgs_no > znr.nr_bgs) {
+			znr_err("Invalid visible blockgroups number: %lld\n",
+				znrg.visible_bgs_no);
+			goto out_err;
+		}
+
+		bg_rep = calloc(1, sizeof(*bg_rep));
+		if (!bg_rep) {
+			znr_err("Out of memory for blockgroup report\n");
+			goto out_err;
+		}
+
+		bg_rep->starting_bg = first_bg;
+		bg_rep->nr_bgs = znrg.visible_bgs_no;
+		done = znr_gui_bg_watch_done;
+		znrg.watch_pending = true;
+	} else {
+		znrg.refresh_pending = true;
+	}
+
+	task = g_task_new(NULL, NULL, done, NULL);
+	g_task_set_task_data(task, bg_rep, free);
+
+	/* We need to close any open tabs before a refresh */
+	znr_gui_close_extents_dialog();
+	g_task_run_in_thread(task, znr_gui_bg_refresh_task);
+	g_object_unref(task);
+	return G_SOURCE_REMOVE;
+
+out_err:
+	znr_gui_disable_watch();
 	return G_SOURCE_REMOVE;
 }
 
-static void znr_gui_refresh_ms_check_cb(GtkWidget *widget,
-				gpointer user_data __attribute__((unused)))
+static void znr_gui_watch_cb(GtkWidget *widget,
+			     gpointer user_data __attribute__((unused)))
 {
-	const char *text;
-	char *endptr;
-	unsigned long long refresh_ms;
+	const char *str;
+	char *end;
+	unsigned long long ms;
 	bool active = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
 
-	if (active) {
-		text = gtk_editable_get_text(GTK_EDITABLE(znrg.refresh_ms_entry));
-		errno = 0;
-		refresh_ms = strtoull(text, &endptr, 10);
-		if (errno || endptr == text || *endptr != '\0' ||
-		    refresh_ms < ZNR_GUI_MIN_REFRESH_MS) {
-			znr_gui_err("Invalid Input",
-				    "Enter a valid period (Minimum %dms)",
-				    ZNR_GUI_MIN_REFRESH_MS);
-			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(widget),
-						     FALSE);
-			return;
-		}
-		znrg.refresh_ms = refresh_ms;
-		g_timeout_add(znrg.refresh_ms, znr_gui_refresh_local_cb, NULL);
-	} else {
-		znrg.refresh_ms = 0;
+	if (!active) {
+		znr_gui_disable_watch();
+		return;
 	}
+
+	str = gtk_editable_get_text(GTK_EDITABLE(znrg.watch_ms_entry));
+	errno = 0;
+	ms = strtoull(str, &end, 10);
+	if (errno || end == str || *end != '\0' || strchr(str, '-') ||
+	    ms < ZNR_GUI_WATCH_MIN_MS || ms > UINT_MAX) {
+		znr_gui_err("Invalid Input",
+			    "Enter a valid period (%dms)", ZNR_GUI_WATCH_MIN_MS);
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(widget), FALSE);
+		return;
+	}
+
+	znrg.watch_ms = ms;
+
+	/*
+	 * An in-flight watch task will reschedule itself when done, with
+	 * the updated watch_ms
+	 */
+	if (!znrg.watch_pending && !znrg.watch_source)
+		znr_gui_setup_refresh_task(NULL);
 }
 
 static void znr_gui_refresh_cb(GtkWidget *widget __attribute__((unused)),
@@ -1279,16 +1426,18 @@ static void znr_gui_refresh_cb(GtkWidget *widget __attribute__((unused)),
 {
 	struct znr_gui_bg_report_info *bg_rep;
 
+	if (znrg.refresh_pending)
+		return;
+
 	bg_rep = calloc(1, sizeof(struct znr_gui_bg_report_info));
         if (!bg_rep) {
                 znr_err("Out of memory for blockgroup report\n");
                 return;
         }
 
-	znr_gui_close_extents_dialog();
 	bg_rep->starting_bg = 0;
 	bg_rep->nr_bgs = znr.nr_bgs;
-	g_idle_add(znr_gui_deferred_report_bgs, bg_rep);
+	znr_gui_setup_refresh_task(bg_rep);
 }
 
 static void znr_gui_show_bg_cb(GtkWidget *button __attribute__((unused)),
@@ -1572,7 +1721,7 @@ static void znr_gui_create_app(GtkApplication *app, gpointer user_data)
 	GtkWidget *top_vbox, *vbox, *frame, *hbox, *scroll_window, *bottom_row;
 	GtkWidget *label, *da, *entry, *search_button;
 	GtkWidget *zoom_label, *zoom_out_button, *zoom_in_button;
-	GtkWidget *refresh_button, *refresh_toggle;
+	GtkWidget *refresh_button, *watch_toggle;
 	GtkCssProvider *css_provider;
 	char str[512];
 	int n;
@@ -1757,23 +1906,25 @@ static void znr_gui_create_app(GtkApplication *app, gpointer user_data)
 	g_signal_connect(search_button, "clicked",
 			 G_CALLBACK(znr_gui_show_bg_cb), NULL);
 
-	/* Refresh interval text entry */
+	/* Watch delay entry */
 	entry = gtk_entry_new();
-	gtk_entry_set_placeholder_text(GTK_ENTRY(entry), "Period (ms)");
-	gtk_widget_set_tooltip_text(entry, "Auto refresh period (ms)");
+	gtk_entry_set_placeholder_text(GTK_ENTRY(entry), "delay (ms)");
+	gtk_widget_set_tooltip_text(entry, "Watch update delay (ms)");
 	gtk_widget_set_hexpand(entry, FALSE);
 	gtk_widget_set_margin_start(entry, 10);
 	gtk_box_append(GTK_BOX(hbox), entry);
-	znrg.refresh_ms_entry = entry;
+	znrg.watch_ms_entry = entry;
 
-	/* Auto-refresh toggle */
-	refresh_toggle = gtk_toggle_button_new_with_label("Auto refresh");
-	gtk_widget_set_tooltip_text(refresh_toggle,
-				    "Toggle auto-refresh");
-	gtk_widget_add_css_class(refresh_toggle, "auto-refresh");
-	gtk_box_append(GTK_BOX(hbox), refresh_toggle);
-	g_signal_connect(refresh_toggle, "toggled",
-			 G_CALLBACK(znr_gui_refresh_ms_check_cb), NULL);
+	/* Watch toggle */
+	watch_toggle = gtk_toggle_button_new_with_label("Watch");
+	gtk_widget_set_tooltip_text(watch_toggle, "Toggle watch");
+	gtk_widget_add_css_class(watch_toggle, "watch");
+	gtk_box_append(GTK_BOX(hbox), watch_toggle);
+	znrg.watch_toggle = watch_toggle;
+	g_object_add_weak_pointer(G_OBJECT(watch_toggle),
+				  (gpointer *)&znrg.watch_toggle);
+	g_signal_connect(watch_toggle, "toggled", G_CALLBACK(znr_gui_watch_cb),
+			 NULL);
 
 	/* Bottom Row */
 	bottom_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
@@ -1852,6 +2003,7 @@ static void znr_gui_create_app(GtkApplication *app, gpointer user_data)
 static void znr_gui_destroy(void)
 {
 	znr_gui_close_extents_dialog();
+	znr_gui_disable_watch();
 
 	/* Cleanup drawing areas hash table */
 	if (znrg.drawing_areas) {
@@ -1997,6 +2149,10 @@ int znr_gui_run(void)
 	 * (G_APPLICATION_HANDLES_OPEN)
 	 */
 	ret = g_application_run(G_APPLICATION(app), 0, NULL);
+	/* Let inflight I/O finish, no further queue ups before exit */
+	znr_gui_disable_watch();
+	g_mutex_lock(&znrg_io_lock);
+
 	g_object_unref(app);
 	znr_gui_destroy();
 

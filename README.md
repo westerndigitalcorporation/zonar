@@ -12,7 +12,7 @@ Currently, Zonar supports the XFS and BTRFS file systems.
 
 ## Zonar in action (XFS on a zloop device)
 
-Below is a demonstration of using Zonar in auto-refresh mode to inspect file
+Below is a demonstration of using Zonar in watch mode to inspect file
 writes to an XFS file system on a zloop device. It also demonstrates the
 file search feature which shows the files extents on the respective blockgroups.
 
@@ -160,6 +160,15 @@ $ ./configure --with-polkit-actiondir=/path/to/polkit-1/actions
 
 ## Usage
 
+### Watch
+
+The *Watch* toggle button makes Zonar periodically update the blockgroups in
+view. The delay between updates is set in milliseconds in the *delay (ms)*
+entry next to the button (minimum 75ms), and must be set before enabling watch.
+The delay is the minimum time between the completion of an update and the start
+of the next one. Any open extents tabs are closed on each update, and clicking
+on a blockgroup to inspect its extents is disabled while watch is active.
+
 ### Local Mode
 
 To run Zonar GUI to inspect a local file system, simply run as a regular user:
@@ -302,7 +311,7 @@ Options:
   - Real-time blockgroup monitoring
   - File extent visualization
   - Interactive blockgroup and extent inspection
-  - Auto-refreshing blockgroups
+  - Watching blockgroups with a configurable update delay
 
 - **Applications**:
   - `zonar.c`: GUI client with local or remote mode support
